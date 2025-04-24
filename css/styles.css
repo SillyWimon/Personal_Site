@@ -66,6 +66,7 @@ body {
 
 .intro-heading {
   margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 body {
@@ -157,10 +158,20 @@ footer a:hover {
 .home .content-wrapper {
   flex: 1 0 auto;
 }
-.content-bg {
+/* .content-bg {
   background: rgb(255, 255, 255, 0.7);
   padding: 30px;
+} */
+.content-bg {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 30px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px; /* optional, looks nice on mobile */
+  max-width: 900px;
+  margin: 0 auto;
 }
+
 @media screen and (max-width: 650px) {
   .home .content-wrapper {
     padding: 10px;
