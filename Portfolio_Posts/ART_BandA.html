@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>How Did ART Impact Traffic? | Albuquerque Corridor Study</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      background-color: #fafafa;
+    }
+    main {
+      background: white;
+      padding: 2rem;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    h1, h2 {
+      color: #333;
+      text-align: center;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    .caption {
+      font-size: 0.9em;
+      color: #666;
+      text-align: center;
+    }
+    ul {
+      padding-left: 1.2rem;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+    
+  <main>
+
+  <h1>How did Albuquerque Rapid Transit (ART) Impact Traffic on Parallel Corridors?</h1>
+
+  <!-- Optional: Header image -->
+  <!-- Replace src with your actual image path -->
+  <img src="images/ART_Snow.JPG" alt="Albuquerque Rapid Transit on Central Avenue during a snowy day in East Downtown Albuquerque">
+
+  
+  <p class="caption">Albuquerque Rapid Transit station in East Downtown</p>
+
+  <h2>Objective</h2>
+  <p>
+    This analysis examines the impact of Albuquerque Rapid Transit (ART) on traffic volumes in the Central Avenue corridor east of the Rio Grande and nearby streets. Using VMT (Vehicle Miles Traveled) data from before and after ART implementation, I explored whether traffic diverted to parallel routes, or whether it disappeared entirely.
+  </p>
+
+  <h2>Methodology</h2>
+  <p>
+    I used AADT data from the Mid-Region Council of Governments (MRCOG) and calculated VMT by multiplying traffic counts by segment length. I compared 2-year (2015–16 vs. 2018–19) and 5-year (2012–16 vs. 2018–22) averages to capture short and long-term change, excluding 2017 due to construction. The analysis focused on Central, Lead, Coal, Lomas, and Zuni corridors in the ART East study area.
+  </p>
+
+  <!-- Optional: Insert study area map image -->
+  <img src="images/Study Area East Map.png" alt="Study area map highlighting ART corridor and parallel streets">
+  <p class="caption">
+    Map of the ART East study area, including Central, Lead, Coal, Lomas, and Zuni — the corridors analyzed for VMT change.
+  </p>
+  
+
+  <h2>Findings</h2>
+  
+  <!-- Optional: VMT Change Chart -->
+  <img src="images/vmt_change_by_corridor_east_only.png" alt="Chart showing VMT change by corridor">
+  
+  <p class="caption">
+    Central Avenue saw the largest drop in VMT, while nearby corridors experienced only modest change.
+  </p>
+  
+
+  <ul>
+    <li>Central Avenue traffic dropped sharply: VMT declined by 16,665 (2-year) and 38,419 (5-year).</li>
+    <li>Parallel corridors saw only small increases: Lead and Coal picked up minor traffic, but nowhere near Central’s decline.</li>
+    <li>Net traffic in the study area decreased: Total daily VMT fell by over 18,000 (2-year) and 51,000 (5-year).</li>
+    <li>Traffic did not “flood” surrounding roads as many people hypothesized.</li>
+  </ul>
+
+  <h2>Interactive Map</h2>
+  <!-- Embed your folium map or link to it -->
+  <iframe src="images/ART_East_VMT_Graduated_Legend.html" 
+        width="100%" 
+        height="600" 
+        style="border: none;">
+  </iframe>
+
+  <p class="caption">
+    Use the layer toggle to view changes across the 2- and 5-year comparisons. Thicker red/green lines represent larger decreases/increases in traffic volume.<br>
+    <em>Source: Mid-Region Council of Governments (MRCOG)</em>
+  </p>
+  
+  <p style="text-align: center; margin-top: -10px;">
+    <a href="images/ART_East_VMT_Graduated_Legend.html" target="_blank">
+      👉 View Fullscreen Map
+    </a>
+  </p>
+  
+
+  <h2>Conclusion</h2>
+  <p>
+    Contrary to predictions, the ART project did not simply push traffic from Central onto nearby corridors. Much of the traffic appears to have disappeared entirely. This outcome is consistent with research on "disappearing traffic" and induced demand from around the world. This underscores the potential for redesigning streets without causing widespread congestion.
+  </p>
+  </main>
+</body>
+</html>
