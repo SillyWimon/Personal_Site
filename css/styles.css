@@ -62,18 +62,20 @@ html {
 /* Mobile Adjustments for Navigation */
 @media (max-width: 600px) {
   .main-nav {
-    flex-direction: column;  /* Stack the links */
-    align-items: stretch;    /* Make them full width */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px; /* space between buttons */
     margin-top: 10px;
-    padding: 0;              /* Remove extra padding */
+    padding: 4px;
   }
 
   .main-nav a {
-    margin: 8px 0;           /* Space between buttons */
-    padding: 14px 0;         /* Bigger tap targets */
-    font-size: 1.8rem;       /* Slightly bigger text for readability */
+    font-size: 1.6rem;
+    padding: 12px 0;
+    margin: 0; /* remove extra margin if any */
   }
 }
+
 
 html,
 body {
@@ -170,6 +172,24 @@ footer a:hover {
   display: flex;
   flex-direction: column;
 }
+.hero-mobile {
+  display: none; /* Hide by default */
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .home {
+    background: none; /* Remove full background on mobile */
+  }
+  .hero-mobile {
+    display: block;
+    width: 100%;
+    background: url(../images/SaltyPee.jpeg) no-repeat center top;
+    background-size: cover;
+    height: 250px;
+  }
+}
+
 
 .home .content-wrapper {
   flex: 1 0 auto;
