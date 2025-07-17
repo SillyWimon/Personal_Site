@@ -58,6 +58,21 @@ html {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+/* Mobile Adjustments for Navigation */
+@media (max-width: 600px) {
+  .main-nav {
+    flex-direction: column;  /* Stack the links */
+    align-items: stretch;    /* Make them full width */
+    margin-top: 10px;
+    padding: 0;              /* Remove extra padding */
+  }
+
+  .main-nav a {
+    margin: 8px 0;           /* Space between buttons */
+    padding: 14px 0;         /* Bigger tap targets */
+    font-size: 1.8rem;       /* Slightly bigger text for readability */
+  }
+}
 
 html,
 body {
@@ -91,17 +106,17 @@ h3 {
 }
 
 h1 {
-  font-size: 7rem;
-  line-height: 1.3;
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 1.2;
   font-weight: 400;
 }
 
 h2 {
-  font-size: 3.6rem;
+  font-size: clamp(2rem, 5vw, 3.6rem);
 }
 
 h3 {
-  font-size: 2.4rem;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
 }
 
 /* links */
@@ -178,12 +193,12 @@ footer a:hover {
   margin: 5px 0;
 }
 
-@media screen and (max-width: 650px) {
+@media screen and (max-width: 600px) {
   .home .content-wrapper {
-    padding: 10px;
+    padding: 15px;
   }
   .content-bg {
-    padding: 20px;
+    padding: 15px;
   }
   #now-playing iframe {
     height: 152px; /* Or whatever you prefer for compact view */
