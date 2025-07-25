@@ -1,0 +1,104 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+
+/* Body styling */
+body {
+  font-family: 'Cinzel', serif;
+  background-color: #6b705c; /* Olive green */
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  color: #333;
+}
+
+/* Main container */
+.container {
+  max-width: 500px;
+  margin: 0 auto;
+  background: #f8f4e3; /* Ivory */
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid #d4af37; /* Gold */
+}
+
+/* Title */
+h1 {
+  font-size: 2rem;
+  color: #800000; /* Roman red */
+}
+
+/* Achilles image */
+.achilles {
+  display: block;
+  max-width: 350px;  /* default for larger screens */
+  margin: 20px auto; /* centers it horizontally */
+  width: 100%;       /* ensures it shrinks on small screens */
+}
+
+/* Form layout */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+/* Input and Button */
+.numeral-input, .numeral-btn {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Button styling */
+.numeral-btn {
+  background-color: #d4af37; /* Gold */
+  color: white;
+  font-weight: bold;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.numeral-btn:hover {
+  background-color: #cdaa7d;
+}
+
+/* Output styling */
+#output {
+  margin-top: 20px;
+  font-size: 1.8rem; /* Bigger text */
+  font-weight: bold;
+  color: #333; /* Default text color */
+  background-color: #f8f4e3; /* Ivory to match container */
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: 2px solid #d4af37; /* Gold border */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#output.alert {
+  color: #800000; /* Roman red for error messages */
+}
+
+.hidden {
+  display: none;
+}
+
+/* Responsive Typography and Layout for Mobile */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+  #output {
+    font-size: 1.5rem;
+  }
+  .container {
+    padding: 15px;
+  }
+  .achilles {
+    max-width: 80%; /* scales nicely on mobile */
+  }
+}
+
