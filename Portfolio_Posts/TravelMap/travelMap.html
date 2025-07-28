@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Travel Map</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    /* Full-screen map - commenting out because going to try it with a header - see the #map tag below the html,body styling*/
+    /* #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      left: 0;
+    } */
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    #map {
+      height: calc(100% - 70px); /* leave room for the paragraph */
+    }
+
+
+    /* Custom Dot Markers */
+    .custom-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid white; /* adds contrast */
+      box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+    }
+    .long-stay { background-color: #4caf50; }  /* Green */
+    .medium-stay { background-color: #ff9800; } /* Orange */
+    .short-stay { background-color: hsl(0, 0%, 0%); }  /* Black */
+
+    /* Popup Styling */
+    .popup-content {
+      font-family: Arial, sans-serif;
+      max-width: 300px;
+    }
+    .popup-content h4 {
+      margin: 0 0 5px;
+      font-size: 16px;
+      color: #333;
+    }
+    .popup-content p {
+      margin: 0;
+      font-size: 14px;
+      color: #555;
+    }
+    .popup-content img {
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 8px 0;
+    }
+    .popup-date {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+
+    @media (max-width: 600px) {
+      .leaflet-popup-content-wrapper {
+        width: 90vw !important;
+        max-width: none !important;
+      }
+
+      .popup-content {
+        max-width: 100%;
+      }
+    }
+
+  </style>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+</head>
+<body>
+  <header style="padding: 1em; font-family: sans-serif; background: white;">
+    <h2 style="margin: 0 0 0.5em;">🌍 My (very) Extended Sabbaitcal Map</h2>
+    <p style="margin: 0;">
+      Places I've lived or visited since I quite my job in March of 2024. Click the dots for notes and stories. More coming soon!
+    </p>
+  </header>
+  
+  <div id="map"></div>
+
+  <script>
+    // Initialize map
+    var map = L.map('map').setView([20, 0], 2);
+
+    // Carto Positron Basemap
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    // Helper function for custom dot markers
+    function createDotMarker(lat, lng, cssClass, title, description) {
+      var icon = L.divIcon({
+        className: 'custom-dot ' + cssClass,
+        iconSize: [10, 10]
+      });
+
+      L.marker([lat, lng], { icon: icon })
+        .addTo(map)
+        .bindPopup(`
+          <div class="popup-content">
+            <h4>${title}</h4>
+            <p>${description}</p>
+          </div>
+        `);
+    }
+// Here is the new code to create popups with an image
+    // function createImagePopupMarker(lat, lng, cssClass, title, imageUrl, description) {
+    //   var icon = L.divIcon({
+        
+    //     className: 'custom-dot ' + cssClass,
+    //     iconSize: [10, 10]     
+    //     });
+
+    //   L.marker([lat, lng], { icon: icon })
+    //     .addTo(map)
+    //     .bindPopup(`
+    //       <div class="popup-content">
+    //         <h4>${title}</h4>
+    //         <img src="${imageUrl}" alt="${title}" />
+    //         <p>${description}</p>
+    //       </div>
+    //     `);
+    // }
+
+    /* here is a version with a date option*/
+    function createImagePopupMarker(lat, lng, cssClass, title, date, imageUrl, description) {
+      var icon = L.divIcon({
+        className: 'custom-dot ' + cssClass,
+        iconSize: [10, 10]
+      });
+
+      L.marker([lat, lng], { icon: icon })
+        .addTo(map)
+        .bindPopup(`
+          <div class="popup-content">
+            <h4>${title}</h4>
+            <small class="popup-date">${date}</small>
+            <a href="${imageUrl}" target="_blank">
+              <img src="${imageUrl}" alt="${title}" />
+            </a>
+            <p>${description}</p>
+          </div>
+        `);
+    }
+
+
+
+    // Example markers with different durations
+    // createDotMarker(35.098447, -106.670347, 'long-stay', 'ABQ', 'My beloved and behated home town. I lived here from 2016-2024 during my career as a Transportation Planner. I left in March of 2024 to begin my extended sabbatical/learning journey.');
+    createDotMarker(6.244626, -75.596290, 'short-stay', 'Medellín', 'Within two weeks of quitting my job I was in Medellín with friends from college.');
+    createDotMarker(4.677535, -74.050382, 'short-stay', 'Bogota', "I visited Bogota for about 9 days and really loved it. I thought it was beautiful and the high altitude climate agreed with me a bit better than Medellín's. I rode the Transmilenio around and hiked Monserrate with a Colombian friend I met on the Camino De Santiago the year before.")
+    createDotMarker(-16.509004, -68.127216, 'short-stay', 'La Paz', 'After Bogota, I flew to La Paz Bolivia and was shown around by a Bolivian friend I used to play soccer with in ABQ - he happened to be visiting his parents in La Paz as I was visiting. I met up with two friends for a motorcycle adventure in the southern part of the country. I love La Paz and would very much like to return. I was grateful I hiked in Bogota just before coming to La Paz becuase the altitude is truly a challenge - the airport in El Alto is more than 14,000 feet high! When my friend arrived from the States, he puked at the airport within a few minutes of disembarking!')
+    createDotMarker(-20.463228, -66.826139, 'short-stay', 'Uyuni', "went on a 3 day motorcycle adventure with some friends - William from Philadelphia and Ed from Italy. The flora and fauna was absolutely other worldly. I'll never forget the feeling of getting out onto the salt flats and gunning it. Gold specks in the salt glinted in the sunlight. We all howled like animals for a moment. We explored the mountains surrounding Uyuni and met old llama herders with mouths full of coca leaves. This is possibly the most magical place I have been")
+    createDotMarker(-22.911859, -68.197903, 'short-stay', 'San Pedro de Atacama', "After Uyuni, i took a bus to San Pedro De Atacama with my Greek friend Mike who I met in Uyuni. We wend on a couple tours and got insanely drunk and sang karaoke with our geologist tour-guide one night. Much like Uyuni, the landscape was completely other-worldly. I hat to say it, but the mountains and rock formations surrounding this town kind of put the US southwest to shame.")
+    createDotMarker(-33.442159, -70.669979, 'short-stay', 'Santiago', "I took a 24 hour bus from San Pedro de Atacama to Santiago which I thought would be funny but it turned out to kind of suck. I got sick and ended up spending my first two days hanging around the airBnB and drinking coffee at this beautiful coffee shop across the street. I got better and walked all around Santiago. I really enjoyed seeing Pablo Neruda's house and hiking up their parque Metropolitano de Santiago.")
+    createDotMarker(-34.582195, -58.428240, 'medium-stay', 'Buenos Aires', "I stayed in beautiful Buenos Aires for 5-weeks. I attended a Spanish language school every day and attended intercambio - or language exchanges - my favorite being 'Mate Club,' where we just hung out, drank mate, and switched between speaking Spanish and English")
+
+    createImagePopupMarker(
+      40.7128, -74.006, // lat, lng
+      'medium-stay',
+      'New York City',
+      'September 2024',
+      'images/anubhav-saxena-NYC-unsplash.jpg',
+      'I visited NYC in September and saw my cousins and my brother before heading out to Spain with my brother.'
+    );
+    
+    createImagePopupMarker(
+      42.422086, -8.723624, // lat, lng
+      'short-stay',
+      'Pontevedra, Spain',
+      'September 2024',
+      'images/LukeAndSue.jpg',
+      'Luke and I spent a night in Madrid before heading to Pontevedra to meet our parents. Dad and Sue rented a beautiful place near Combarro. The house was a stones throw from the clear but frigid waters of the Ria de Pontevedra. In the opposite direction was a beautiful network of hiking trails into the mountains that linked up with the Camino De Santiago trail. Our cousins and Aunt and Uncle joined us. I thought this was an absolutely enchanting place'
+    );
+    createImagePopupMarker(
+      35.098447, -106.670347,
+      'long-stay',
+      'Good old ABQ',
+      'March 2016 - April 2024',
+      'images/ABQ_Rainbow.jpg',
+      'My beloved and behated home town. After finishing my Masters in Dublin, I moved back home and got a job as a transportation planner at MRMPO. I lived here from 2016-2024. I left in April of 2024 to begin my extended sabbatical/learning journey.',
+
+    )
+
+    createImagePopupMarker(
+      3.127901, 101.680319,
+      'long-stay',
+      'The beast city of Kuala Lumpur',
+      'November 2024, January - March, May - present',
+      'images/KL_Me.jpg',
+      'I have spent over 6 months in the city of Kuala Lumpur, so I think I can now call it a place I have lived along with Albuquerque, Vancouver, and Dublin. I love this place - it is a complex melting pot of cultures - mostly Malay, Chinese, and Indian. I live in Brickfields, the Indian part of town, and love to drink Masalah Teh and eat plenty of their unhealhty pastries. I spend my time working out, going to physiotherapy, and studying at cafes or at the coworking space near my apartment.'
+    )
+
+    
+    // createDotMarker(48.8566, 2.3522, 'medium-stay', 'Paris', 'Spent 2 months exploring the city.');
+    // createDotMarker(35.6895, 139.6917, 'short-stay', 'Tokyo', 'Quick 5-day trip during cherry blossom.');
+  </script>
+  
+  
+</body>
+</html>
+
