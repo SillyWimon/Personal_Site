@@ -1,0 +1,535 @@
+<!doctype html>
+<html> 
+<head>
+    <!-- next session
+     TODO: sidebar narrative + move all legends bottom-right - maybe play with opacity some more 
+     Broughht in bus stops but they still draw below SVI and Activity Density - Addressed this step
+     Should also look into how legends draw at different screen sizes and play with if we can get them only to show when the layer is toggled on or off-->
+    
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transit Users + SVI</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+
+    #app {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 360px 1fr; /* sidebar width */
+    }
+    #sidebar {
+      padding: 14px 16px;
+      border-right: 1px solid #e5e5e5;
+      overflow-y: auto;
+      font-family: system-ui, sans-serif;
+      line-height: 1.35;
+    }
+    #sidebar h2 { margin: 0 0 8px; font-size: 18px; }
+    #sidebar h3 { margin: 12px 0 4px; font-size: 15px; }
+    #map { height: 100%; }
+
+    .legend { background: #fff; padding: 2px 4px; line-height: 1.2; box-shadow: 0 1px 3px rgba(0,0,0,.2); font-size: 12px; }
+    .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 6px; opacity: .9; }
+
+    /* Nudge Leaflet controls so they don’t sit under the sidebar */
+    .leaflet-left { left: 12px; }
+    .leaflet-right { right: 12px; }
+
+    .story-step { cursor:pointer; padding:8px 10px; border-radius:6px; }
+    .story-step:hover { background:#f6f6f6; }
+
+    .credits { font-size: 12px; color: #555; }
+    .credits h4 { margin: 10px 0 6px; font-size: 13px; color:#333; }
+    .credits ul { margin: 0 0 6px 16px; padding: 0; }
+    .credits li { margin: 2px 0; }
+    .credits .note { margin: 6px 0 0; font-style: italic; }
+
+
+    /* Small screens: collapse sidebar above map */
+    @media (max-width: 900px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      #sidebar { border-right: none; border-bottom: 1px solid #e5e5e5; }
+      .leaflet-left { left: 12px; }
+
+    }
+
+    @media (max-width: 480px){
+      #sidebar { padding: 10px 12px; }
+    }
+
+
+
+
+    /* html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+    .legend { background: white; padding: 6px 8px; line-height: 1.2; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 6px; opacity: 0.9; } 
+    add narrative about each layer */
+    
+
+  </style>
+</head>
+<body>
+
+    <div id="app">
+      <aside id="sidebar">
+        <h2>Transit, Vulnerability & Activity</h2>
+        <p>
+          Transit plays a key role in connecting Albuquerque’s neighborhoods to jobs, schools, and services. 
+          This map brings together data on transit ridership, neighborhood vulnerability, and local activity 
+          to highlight where public transportation is most used and where community needs may be greatest. 
+          By layering these datasets, we can better understand the relationship between transit access and 
+          the people and places it serves.
+        </p>
+        <h2>The Layers:</h2>
+        <p>
+          This map explores patterns of transit use in Albuquerque. The <strong>Transit Users (lines)</strong> layer, which appears by default, shows estimated average weekday transit riders along major corridors. Additional layers can be toggled on or off using the table of contents in the upper-right corner of the map. Each dataset is described below:
+        </p>
+
+        <p>
+          <strong>Social Vulnerability Index (SVI)</strong> is a measure developed by the Centers for Disease Control and Prevention (CDC) using census tract–level data. It combines factors such as income, household composition, minority status, language, housing, and transportation to highlight areas where residents may be more vulnerable to social and environmental stresses.
+        </p>
+        
+        <p>
+          <strong>Activity Density</strong> estimates the level of activity within each census tract by combining residential population with employment. Areas with both high numbers of residents and jobs are important destinations and often coincide with strong transit demand.
+        </p>
+
+        <p>
+          <strong>Bus Stops (proportional)</strong> shows the location of stops along Albuquerque’s major transit routes. Circle size reflects total daily boardings and alightings from ABQ RIDE ridership data. The largest circles highlight the busiest stops, which often align with areas of higher activity density.
+        </p>
+    
+  
+        <div class="story-step" data-center="35.0844,-106.6504" data-zoom="14">
+          <h3>Downtown Core</h3>
+          <p>Downtown is where many transit lines converge, with most beginning or ending at the Alvarado Transportation Center. 
+          It is also home to high activity density with many jobs and a growing number of residents. 
+          It’s no surprise that downtown Albuquerque shows some of the highest ridership and stop activity in the region.</p>
+        </div>
+  
+        <div class="story-step" data-center="35.0719,-106.6249" data-zoom="13">
+          <h3>UNM / Central</h3>
+          <p>The Central Avenue corridor is the urban spine of Albuquerque. 
+            Toggle on the activity density layer, and you’ll see many of the city’s highest values concentrated here. 
+            To the east lies the International District, where the Social Vulnerability Index reveals higher levels of vulnerability. 
+            Bus stop activity is especially strong along Central, particularly near the intersections at San Mateo and Louisiana.</p>
+        </div>
+  
+        <div class="story-step" data-center="35.1316,-106.7079" data-zoom="12">
+          <h3>Westside Corridors</h3>
+          <p>On Albuquerque’s Westside, overall transit use is lower. 
+            ABQ RIDE has invested in relatively frequent routes such as the Coors bus (Rt 155) and, previously, the Blue Line Rapid Ride (Rt 790). 
+            However, the 790 had the lowest productivity (boardings per hour) of any frequent route. 
+            Transit on the Westside faces challenges including lower activity density and a less connected street network, which makes walking more difficult.</p>
+        </div>
+
+        <hr />
+          <section class="credits">
+            <h4>Data sources</h4>
+            <ul>
+              <li><strong>Transit ridership & bus stops:</strong> ABQ RIDE (boardings, alightings, stop locations).</li>
+              <li><strong>Social Vulnerability Index (SVI):</strong> CDC/ATSDR Social Vulnerability Index.</li>
+              <li><strong>Activity Density:</strong> U.S. EPA Smart Location Database (field <code>D1D</code>).</li>
+              <li><strong>Basemap:</strong> © OpenStreetMap contributors; Carto tiles.</li>
+            </ul>
+            <p class="note">Any errors or interpretations are my own.</p>
+          </section>
+
+  
+        <hr/>
+  
+        <!-- <div class="toggles">
+          <label><input type="checkbox" id="toggle-svi" checked> Show SVI</label><br/>
+          <label><input type="checkbox" id="toggle-activity" checked> Show Activity Density</label><br/>
+          <label><input type="checkbox" id="toggle-stops" checked> Show Bus Stops</label><br/>
+          <label><input type="checkbox" id="toggle-lines" checked> Show Transit Users</label>
+        </div> -->
+      </aside>
+  
+      <div id="map"></div>
+    </div>
+  
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map', { zoomControl: true }).setView([35.10, -106.57], 12);
+
+    // Basemap
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+//     const cartoDark = L.tileLayer(
+//   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+//     attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+//     subdomains: 'abcd',
+//     maxZoom: 20
+//     }).addTo(map);
+
+    const cartoLight = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20
+    }).addTo(map);
+
+
+    // --- Panes so lines draw above polygons ---
+
+    map.createPane('linesPane'); map.getPane('linesPane').style.zIndex = 450;
+    map.createPane('stopsPane'); map.getPane('stopsPane').style.zIndex = 440;
+    map.createPane('sviPane');   map.getPane('sviPane').style.zIndex = 400;
+    
+    // Stop styling:
+    const STOP_FILL   = '#ff6e6e';   // coral (pops over blues)
+    const STOP_STROKE = '#ffffff';
+    const STOP_OPAC   = 0.8;
+
+
+    // ----- Transit Users (lines) -----
+    const BREAKS = [0, 500, 1000, 1500, 2000, 2500, 3000];
+    function colorUsers(u){
+      return u >= BREAKS[6] ? '#800026' :
+             u >= BREAKS[5] ? '#BD0026' :
+             u >= BREAKS[4] ? '#E31A1C' :
+             u >= BREAKS[3] ? '#FC4E2A' :
+             u >= BREAKS[2] ? '#FD8D3C' :
+             u >= BREAKS[1] ? '#FEB24C' :
+             u >  0         ? '#FED976' : '#CCCCCC';
+    }
+    function styleLines(feature){
+      const users = Number(feature.properties?.TransitUsersTTL) || 0;
+      return { pane: 'linesPane', color: colorUsers(users), weight: 4, opacity: 0.9 };
+    }
+    function onEachLine(feature, layer){
+      const p = feature.properties || {};
+      const fmt = (n)=> Number(n).toLocaleString();
+      const route = p.RTE ?? '';
+      const cogid = p.COGID ?? '';
+      const miles = (p.MILES ?? 0).toFixed(3);
+      const users = p.TransitUsersTTL ?? '—';
+      const awdt23 = p.AWDT23 ?? '—';
+      layer.bindPopup(
+        `<b>${route}</b><br/>
+         COGID: ${cogid}<br/>
+         Length: ${miles} mi<br/>
+         Total transit users: ${fmt(users)}<br/>
+         AWDT 2023: ${fmt(awdt23)}`
+      );
+    }
+    const transitLayer = L.geoJSON(null, { style: styleLines, onEachFeature: onEachLine });
+
+    const legendUsers = L.control({position: 'bottomright'});
+    legendUsers.onAdd = function(){
+      const div = L.DomUtil.create('div', 'legend');
+      const fmt = n => Number(n).toLocaleString();
+      div.innerHTML += '<b>Total Transit Users</b><br/>';
+      for (let i = 0; i < BREAKS.length; i++) {
+        const from = BREAKS[i], to = BREAKS[i+1];
+        const sample = to ? (from + to) / 2 : from + 1e-6;
+        div.innerHTML +=
+          `<i style="background:${colorUsers(sample)}"></i> ` +
+          (to ? `${fmt(from)}&ndash;${fmt(to - 1)}<br/>` : `${fmt(from)}+`);
+      }
+      return div;
+    };
+    // legendUsers.addTo(map);
+
+    // ----- SVI (polygons) using RPL_THEMES 0–1 -----
+    const SVI_FIELD = 'RPL_THEMES';         // overall SVI percentile (0–1)
+    const SVI_BREAKS = [0, 0.2, 0.4, 0.6, 0.8];  // quintile-style bins
+
+
+    // Blues (light → dark). Darkest = highest vulnerability.
+    function colorSVI(v){
+    return v >= 0.8 ? '#08306b' :  // darkest navy
+            v >= 0.6 ? '#2171b5' :
+            v >= 0.4 ? '#4292c6' :
+            v >= 0.2 ? '#6baed6' :
+                        '#deebf7';  // very light blue
+    }
+
+    function styleSVI(feature){
+    const v = Number(feature.properties?.[SVI_FIELD]) || 0;
+
+    // more transparent for low SVI, more opaque for high
+    const fillOpacity =
+            v >= 0.8 ? 0.75 :
+            v >= 0.6 ? 0.65 :
+            v >= 0.4 ? 0.55 :
+            v >= 0.2 ? 0.40 :
+                    0.15;
+
+    // optional: hide borders for lowest bin
+    const stroke = v < 0.2 ? 'transparent' : '#445';
+
+    return {
+        pane: 'sviPane',
+        fillColor: colorSVI(v),
+        color: stroke,
+        weight: 0.4,
+        fillOpacity: fillOpacity
+    };
+    }
+
+
+    function onEachSVI(feature, layer){
+      const p = feature.properties || {};
+      const name = p.LOCATION || p.GEOID || 'Tract';
+      const v = Number(p[SVI_FIELD]);
+      const pct = Number.isFinite(v) ? (v * 100).toFixed(1) + '%' : '—';
+      // Optional: show the four theme percentiles if you want
+      const t1 = p.RPL_THEME1, t2 = p.RPL_THEME2, t3 = p.RPL_THEME3, t4 = p.RPL_THEME4;
+      layer.bindPopup(
+        `<b>${name}</b><br/>
+         SVI (overall percentile): <b>${pct}</b>` +
+        (Number.isFinite(t1) ? `<br/>Theme1 (Socioeconomic): ${(t1*100).toFixed(0)}%` : '') +
+        (Number.isFinite(t2) ? `<br/>Theme2 (Household/Disability): ${(t2*100).toFixed(0)}%` : '') +
+        (Number.isFinite(t3) ? `<br/>Theme3 (Minority/Language): ${(t3*100).toFixed(0)}%` : '') +
+        (Number.isFinite(t4) ? `<br/>Theme4 (Housing/Transport): ${(t4*100).toFixed(0)}%` : '')
+      );
+    }
+    const sviLayer = L.geoJSON(null, { style: styleSVI, onEachFeature: onEachSVI });
+
+    // Separate SVI legend
+    const legendSVI = L.control({position: 'bottomright'});
+    legendSVI.onAdd = function(){
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML += '<b>SVI (Overall Percentile)</b><br/>';
+      // Build labels from breaks: 0–20–40–60–80–100
+      const labels = [
+        {from:   0, to:  20},
+        {from:  20, to:  40},
+        {from:  40, to:  60},
+        {from:  60, to:  80},
+        {from:  80, to: 100}
+      ];
+      for (const b of labels){
+        // sample midpoint in 0–1 range
+        const sample = ((b.from + b.to) / 2) / 100;
+        div.innerHTML += `<i style="background:${colorSVI(sample)}"></i> ${b.from}&ndash;${b.to}%<br/>`;
+      }
+      return div;
+    };
+    // legendSVI.addTo(map);
+
+    // ===== Activity Density (SLD) =====
+    map.createPane('activityPane');
+    map.getPane('activityPane').style.zIndex = 405; // SVI 400, Activity 425, Lines 450
+
+    const ACT_FIELD = 'D1D'; // activity density = jobs + housing units per acre
+    const ACT_BREAKS = [0, 3.144, 6.794, 12.160, 26.623, 67.260];
+
+    function colorActivity(v){
+        return v >= ACT_BREAKS[5] ? '#4a1486' :
+               v >= ACT_BREAKS[4] ? '#6a51a3' :
+               v >= ACT_BREAKS[3] ? '#807dba' :
+               v >= ACT_BREAKS[2] ? '#bcbddc' :
+               v >= ACT_BREAKS[1] ? '#dadaeb' :
+                                    '#f2f0f7';
+    }
+
+    function styleActivity(feature){
+        const v = Number(feature.properties?.[ACT_FIELD]) || 0;
+        const fillOpacity =
+                v >= ACT_BREAKS[5] ? 0.80 :
+                v >= ACT_BREAKS[4] ? 0.70 :
+                v >= ACT_BREAKS[3] ? 0.60 :
+                v >= ACT_BREAKS[2] ? 0.48 :
+                v >= ACT_BREAKS[1] ? 0.38 : 0.26;
+        return { pane:'activityPane', fillColor:colorActivity(v), color:'#0000', weight:0.3, fillOpacity };
+    }
+
+    function onEachActivity(f, layer){
+    const v = Number(f.properties?.[ACT_FIELD]);
+    const val = Number.isFinite(v) ? v.toFixed(1) : '—';
+    layer.bindPopup(`Activity density (HU + jobs / acre): <b>${val}</b>`);
+    }
+
+    const activityLayer = L.geoJSON(null, { style: styleActivity, onEachFeature: onEachActivity });
+
+    // Legend (top-left so it doesn't clash)
+    const legendActivity = L.control({ position:'bottomright' });
+    legendActivity.onAdd = function(){
+
+        const div = L.DomUtil.create('div','legend');
+        const fmt = n => Number(n).toFixed(1);
+        div.innerHTML = '<b>Activity Density</b><br/>';
+  for (let i = 0; i < ACT_BREAKS.length - 1; i++){
+    const from = ACT_BREAKS[i], to = ACT_BREAKS[i+1];
+    const sample = (from + to) / 2;
+    div.innerHTML += `<i style="background:${colorActivity(sample)}"></i> ${fmt(from)}–${fmt(to)}<br/>`;
+  }
+  const last = ACT_BREAKS[ACT_BREAKS.length - 1];
+  div.innerHTML += `<i style="background:${colorActivity(last + 1e-6)}"></i> ${fmt(last)}+`;
+  return div;
+};
+  // legendActivity.addTo(map);
+  let stopsLayer;
+  let StopsLegend;
+
+
+
+    // ----- Load data -----
+    Promise.all([
+      fetch('TransitRiders.geojson').then(r => r.json()),
+      fetch('SVI_BernCo.geojson').then(r => r.json()),
+      fetch('SmartLocations_BernCo.geojson').then(r => r.json()),
+      fetch('Bus_Stop_Boardings_2024.geojson').then(r => r.json())
+    ]).then(([transitData, sviData, actData, stopsGeo]) => {
+      // add the three existing layers
+      transitLayer.addData(transitData).addTo(map);
+      sviLayer.addData(sviData);           // start off (toggle on via control if you want)
+      activityLayer.addData(actData);
+
+      // ---- Bus stops: compute domain & render proportional symbols ----
+      const getTotal = f => Number(f.properties?.DAY_TOT ?? 0);
+
+      let min = Infinity, max = -Infinity;
+      for (const f of stopsGeo.features) {
+        const v = getTotal(f);
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      if (!isFinite(min) || !isFinite(max) || max === 0) { min = 0; max = 1; }
+
+      // sqrt scaling so CIRCLE AREA ∝ value
+      const makeRadius = (v, rMin = 3, rMax = 18) => {
+        const a = Math.sqrt(min), b = Math.sqrt(max);
+        const t = (Math.sqrt(Math.max(v, 0)) - a) / ((b - a) || 1);
+        return rMin + t * (rMax - rMin);
+      };
+
+      stopsLayer = L.geoJSON(stopsGeo, {
+        pane: 'stopsPane',
+        filter: f => getTotal(f) > 0,
+        pointToLayer: (f, latlng) => {
+          const total = getTotal(f);
+          return L.circleMarker(latlng, {
+            pane: 'stopsPane',          // 👈 add this line
+            radius: makeRadius(total),
+            fillOpacity: 0.75,
+            stroke: true,
+            weight: 1,
+            color: '#333',
+            fillColor: '#000'           // optional: make sure it’s visible over blues
+          }).bindPopup(`
+            <strong>${f.properties.STOPNAME ?? 'Stop'}</strong><br>
+            Boardings: ${Number(f.properties.DAY_ON ?? 0).toFixed(2)}<br>
+            Alightings: ${Number(f.properties.DAY_OFF ?? 0).toFixed(2)}<br>
+            Total: ${total.toFixed(2)}
+          `);
+        }
+      });
+      // stopsLayer.addTo(map); not going to add stops automatically for now
+
+            // Optional: tiny proportional legend for stops
+            StopsLegend = L.control({ position: 'bottomright' });
+            StopsLegend.onAdd = () => {
+              const div = L.DomUtil.create('div', 'legend');
+              div.innerHTML = '<b>Stop activity (total)</b><br/>';
+              const samples = [min, (min + max) / 2, max].map(v => Math.round(v));
+              const radii = samples.map(s => makeRadius(s));
+              div.innerHTML += samples.map((s, i) => `
+                <div style="display:flex;align-items:center;margin:6px 0;">
+                  <svg width="${radii[i]*2+10}" height="${radii[i]*2+10}">
+                    <circle cx="${radii[i]+5}" cy="${radii[i]+5}" r="${radii[i]}" fill="black" fill-opacity="0.75" stroke="#333"/>
+                  </svg>
+                  <span style="margin-left:8px">${s}</span>
+                </div>
+              `).join('');
+              return div;
+            };
+      // StopsLegend.addTo(map);
+
+      // Fit to lines initially
+      map.fitBounds(transitLayer.getBounds());
+
+      // Build layer control AFTER all overlays exist
+      const baseMaps = {
+        'OpenStreetMap': osm,
+        'Carto Light Basemap': cartoLight
+      };
+      const overlays = {
+        'Transit Users (lines)': transitLayer,
+        'SVI (tracts)': sviLayer,
+        'Activity density': activityLayer,
+        'Bus stops (proportional)': stopsLayer
+      };
+      L.control.layers(baseMaps, overlays, { collapsed: false }).addTo(map);
+
+      // Map each overlay layer to its legend control
+      const layerToLegend = new Map([
+        [transitLayer,  legendUsers],
+        [sviLayer,      legendSVI],
+        [activityLayer, legendActivity],
+        [stopsLayer,    StopsLegend]
+      ]);
+
+      // When an overlay is turned on via the control, add its legend
+      map.on('overlayadd', (e) => {
+        const legend = layerToLegend.get(e.layer);
+        if (legend && !legend._map) legend.addTo(map);
+      });
+
+      // When an overlay is turned off, remove its legend
+      map.on('overlayremove', (e) => {
+        const legend = layerToLegend.get(e.layer);
+        if (legend && legend._map) legend.remove();
+      });
+
+      // Initial sync (after you add some layers to the map by default)
+      for (const [layer, legend] of layerToLegend.entries()) {
+        if (map.hasLayer(layer)) {
+          if (!legend._map) legend.addTo(map);
+        } else {
+          if (legend._map) legend.remove();
+        }
+      }
+
+      // keep lines on top when toggled
+      transitLayer.on('add', () => transitLayer.bringToFront());
+
+
+    }).catch(err => console.error(err));
+
+    
+
+
+    // --- Narrative clicks: fly to each step ---
+    document.querySelectorAll('.story-step').forEach(step => {
+      step.addEventListener('click', () => {
+        const [lat, lng] = step.dataset.center.split(',').map(Number);
+        const z = Number(step.dataset.zoom) || 12;
+        map.flyTo([lat, lng], z, { duration: 0.9 });
+      });
+    });
+
+    // --- Sidebar toggles map layers ---
+    // const $ = sel => document.querySelector(sel);
+    // $('#toggle-svi').checked = false; // if you start SVI off, reflect that here if needed
+
+    // $('#toggle-svi').addEventListener('change', e => {
+    //   e.target.checked ? sviLayer.addTo(map) : map.removeLayer(sviLayer);
+    // });
+    // $('#toggle-activity').addEventListener('change', e => {
+    //   e.target.checked ? activityLayer.addTo(map) : map.removeLayer(activityLayer);
+    // });
+    // $('#toggle-stops').addEventListener('change', e => {
+    //   e.target.checked ? stopsLayer.addTo(map) : map.removeLayer(stopsLayer);
+    // });
+    // $('#toggle-lines').addEventListener('change', e => {
+    //   e.target.checked ? transitLayer.addTo(map) : map.removeLayer(transitLayer);
+    // });
+
+    // If you’re auto-showing/hiding legends based on layer visibility, nothing else needed.
+    // If controls overlap after layout changes (like rotating your screen), ensure layout:
+    window.addEventListener('resize', () => map.invalidateSize());
+
+
+  </script>
+</body>
+</html>
