@@ -376,7 +376,7 @@
     // ----- Load data -----
     Promise.all([
       fetch('TransitRiders.geojson').then(r => r.json()),
-      fetch('SVI_BernCo.geojson').then(r => r.json()),
+      fetch('SVI_BernCO.geojson').then(r => r.json()),
       fetch('SmartLocations_BernCo.geojson').then(r => r.json()),
       fetch('Bus_Stop_Boardings_2024.geojson').then(r => r.json())
     ]).then(([transitData, sviData, actData, stopsGeo]) => {
