@@ -46,20 +46,30 @@
     .credits .note { margin: 6px 0 0; font-style: italic; }
 
 
-    /* Small screens: collapse sidebar above map */
+    
+    /* Stack on phones and keep the map visible */
     @media (max-width: 900px) {
       #app {
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+        grid-template-rows: auto 1fr; /* keep */
       }
-      #sidebar { border-right: none; border-bottom: 1px solid #e5e5e5; }
-      .leaflet-left { left: 12px; }
-
+      #sidebar {
+        border-right: none;
+        border-bottom: 1px solid #e5e5e5;
+        /* NEW: limit height so the map isn’t pushed off-screen */
+        max-height: 42vh;
+        overflow-y: auto;
+      }
+      #map {
+        min-height: 58vh; /* ensures a visible map slice */
+      }
     }
 
+    /* Tiny phones: a little tighter padding (optional) */
     @media (max-width: 480px){
       #sidebar { padding: 10px 12px; }
     }
+
 
 
 
