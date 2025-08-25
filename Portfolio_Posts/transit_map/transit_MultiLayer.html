@@ -2,9 +2,7 @@
 <html> 
 <head>
     <!-- next session
-     TODO: sidebar narrative + move all legends bottom-right - maybe play with opacity some more 
-     Broughht in bus stops but they still draw below SVI and Activity Density - Addressed this step
-     Should also look into how legends draw at different screen sizes and play with if we can get them only to show when the layer is toggled on or off-->
+     I think I addressed a lot of the mobile concerns, but the i screen still doesn't slid on, it slies off but not on-->
     
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -16,7 +14,8 @@
     #app {
       height: 100%;
       display: grid;
-      grid-template-columns: 360px 1fr; /* sidebar width */
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "sidebar map";
     }
     #sidebar {
       padding: 14px 16px;
@@ -24,10 +23,15 @@
       overflow-y: auto;
       font-family: system-ui, sans-serif;
       line-height: 1.35;
+      grid-area: sidebar; 
     }
     #sidebar h2 { margin: 0 0 8px; font-size: 18px; }
     #sidebar h3 { margin: 12px 0 4px; font-size: 15px; }
-    #map { height: 100%; }
+    #map { 
+      height: 100%;
+      grid-area: map;
+    }
+    
 
     .legend { background: #fff; padding: 2px 4px; line-height: 1.2; box-shadow: 0 1px 3px rgba(0,0,0,.2); font-size: 12px; }
     .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 6px; opacity: .9; }
@@ -44,41 +48,92 @@
     .credits ul { margin: 0 0 6px 16px; padding: 0; }
     .credits li { margin: 2px 0; }
     .credits .note { margin: 6px 0 0; font-style: italic; }
-
-
     
-    /* Stack on phones and keep the map visible */
-    @media (max-width: 900px) {
-      #app {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr; /* keep */
-      }
-      #sidebar {
-        border-right: none;
-        border-bottom: 1px solid #e5e5e5;
-        /* NEW: limit height so the map isn’t pushed off-screen */
-        max-height: 42vh;
-        overflow-y: auto;
-      }
-      #map {
-        min-height: 58vh; /* ensures a visible map slice */
-      }
+    .layers-divider {
+      border-top: 1px solid #e4e4e4;
+      margin: 6px 4px;
+    }
+    .layers-group-title {
+      font: 600 13px/1.2 system-ui, sans-serif;
+      margin: 6px 8px 4px;
+      color: #333;
     }
 
-    /* Tiny phones: a little tighter padding (optional) */
-      @media (max-width: 480px){
-        #sidebar { padding: 10px 12px; }
+    .layers-group-title small {
+      font-size: 11px;
+      color: #555;
+    }
+
+    @media (max-width: 900px) {
+  /* Base layout: map only; sidebar becomes an overlay */
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-areas: "map";
+      }
+      #sidebar { display: none; }
+
+      /* Overlay container (mounted but offscreen by default) */
+      #sidebar.sidebar--overlay {
+        display: block !important;
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        z-index: 4000;
+        height: 100vh;
+        max-height: 100vh;
+        overflow-y: auto;
+        padding: 16px;
+
+        /* closed/offscreen + animation */
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+        will-change: transform;
       }
 
+      /* Open state (slides in) */
+      #sidebar.sidebar--overlay.is-visible {
+        transform: translateX(0);
+      }
+
+      /* Close (X) button */
+      #sidebar.sidebar--overlay .sidebar-close {
+        position: sticky;
+        top: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        margin: -8px -8px 8px auto;
+        border: none;
+        background: #f2f2f2;
+        border-radius: 10px;
+        font-size: 22px;
+        cursor: pointer;
+        z-index: 1;
+      }
+
+      /* Info button styling */
+      .leaflet-control.info-btn {
+        background: #fff;
+        border-radius: 4px;
+        padding: 6px 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.3);
+        font: 14px/1 system-ui, sans-serif;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      /* Hide map controls/legends while overlay is open */
+      body.overlay-open .leaflet-control-container { display: none !important; }
+      body.overlay-open .legend { display: none !important; }
+
+      /* Nudge controls a bit on small screens */
+      .leaflet-top.leaflet-left { left: 12px; }
+      .leaflet-top.leaflet-right { right: 12px; }
+    }
 
 
-
-
-    /* html, body { height: 100%; margin: 0; }
-    #map { height: 100%; }
-    .legend { background: white; padding: 6px 8px; line-height: 1.2; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-    .legend i { width: 14px; height: 14px; display: inline-block; margin-right: 6px; opacity: 0.9; } 
-    add narrative about each layer */
     
 
   </style>
@@ -87,6 +142,8 @@
 
     <div id="app">
       <aside id="sidebar">
+        <!-- button for mobile app only -->
+        <button class="sidebar-close" aria-label="Close" title="Close" hidden>&times;</button>
         <h2>Transit, Vulnerability & Activity</h2>
         <p>
           Transit plays a key role in connecting Albuquerque’s neighborhoods to jobs, schools, and services. 
@@ -165,12 +222,12 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: true }).setView([35.10, -106.57], 12);
+    const map = L.map('map', { zoomControl: true }).setView([35.10, -106.57], 14);
 
     // Basemap
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    });
 
 //     const cartoDark = L.tileLayer(
 //   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -328,7 +385,7 @@
 
     // ===== Activity Density (SLD) =====
     map.createPane('activityPane');
-    map.getPane('activityPane').style.zIndex = 405; // SVI 400, Activity 425, Lines 450
+    map.getPane('activityPane').style.zIndex = 405; // SVI 400, Activity 405, Lines 450
 
     const ACT_FIELD = 'D1D'; // activity density = jobs + housing units per acre
     const ACT_BREAKS = [0, 3.144, 6.794, 12.160, 26.623, 67.260];
@@ -376,7 +433,73 @@
   const last = ACT_BREAKS[ACT_BREAKS.length - 1];
   div.innerHTML += `<i style="background:${colorActivity(last + 1e-6)}"></i> ${fmt(last)}+`;
   return div;
+
 };
+
+
+  // --- Mobile overlay: open/close logic ---
+  const sidebarEl = document.getElementById('sidebar');
+  const closeBtn = sidebarEl.querySelector('.sidebar-close');
+
+  // Use a class on <body> to hide legends, etc., while overlay is open
+  function openSidebar() {
+    sidebarEl.classList.add('sidebar--overlay');
+    
+    closeBtn.hidden = false;
+    document.body.classList.add('overlay-open');
+    requestAnimationFrame(() => {
+    // Step 3: now slide it in
+      sidebarEl.classList.add('is-visible');
+  });
+
+
+  }
+  function closeSidebar() {
+    sidebarEl.classList.remove('is-visible');
+//Adding animation
+    sidebarEl.addEventListener('transitionend', () => {
+        sidebarEl.classList.remove('sidebar--overlay');
+      }, { once: true });
+
+    closeBtn.hidden = true;
+    document.body.classList.remove('overlay-open');
+  }
+
+  // Close button click
+  closeBtn?.addEventListener('click', closeSidebar);
+
+  // Build a small Leaflet control with an “i” button (only matters on mobile)
+  const InfoControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function() {
+      const div = L.DomUtil.create('div', 'leaflet-control info-btn');
+      div.setAttribute('role', 'button');
+      div.setAttribute('aria-label', 'About this map');
+      div.title = 'About this map';
+      div.textContent = 'ⓘ';
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.on(div, 'click', () => openSidebar());
+      return div;
+    }
+  });
+  const infoControl = new InfoControl();
+
+  // Watch for viewport changes to mount/unmount the control
+  const mq = window.matchMedia('(max-width: 900px)');
+  function handleMQ(e) {
+    if (e.matches) {
+      // mobile: show info button, hide static sidebar
+      if (!infoControl._map) infoControl.addTo(map);
+      // ensure sidebar starts closed on mobile
+      closeSidebar();
+    } else {
+      // desktop: ensure overlay is closed and remove info button
+      if (infoControl._map) map.removeControl(infoControl);
+      closeSidebar();
+    }
+  }
+  handleMQ(mq);
+  mq.addEventListener('change', handleMQ);
   // legendActivity.addTo(map);
   let stopsLayer;
   let StopsLegend;
@@ -465,13 +588,45 @@
       };
       const overlays = {
         'Transit Users (lines)': transitLayer,
+        'Bus stops (proportional)': stopsLayer,
         'SVI (tracts)': sviLayer,
-        'Activity density': activityLayer,
-        'Bus stops (proportional)': stopsLayer
+        'Activity density': activityLayer
       };
       L.control.layers(baseMaps, overlays, { collapsed: false }).addTo(map);
 
-      // Map each overlay layer to its legend control
+      // run this right AFTER you add the layers control
+      (function decorateLayersControl(){
+        const ctl = document.querySelector('.leaflet-control-layers');
+        if (!ctl) return;
+
+        const overlaysBox = ctl.querySelector('.leaflet-control-layers-overlays');
+        if (!overlaysBox) return;
+
+        const labels = Array.from(overlaysBox.querySelectorAll('label'));
+        const svi = labels.find(l => /SVI\s*\(tracts\)/i.test(l.textContent));
+        const act = labels.find(l => /Activity\s*density/i.test(l.textContent));
+        if (!svi || !act) return;
+
+        // keep them adjacent (SVI, then Activity)
+        if (act.previousElementSibling !== svi) {
+          overlaysBox.insertBefore(act, svi.nextSibling);   // <- use the label, not parentNode
+        }
+
+        // insert group title and divider *before* SVI
+        const title = document.createElement('div');
+        title.className = 'layers-group-title';
+        title.innerHTML = 'Background data<br><small>(choose one)</small>';
+
+
+        const divider = document.createElement('div');
+        divider.className = 'layers-divider';
+
+        overlaysBox.insertBefore(divider, svi); // <- insert before the label
+        overlaysBox.insertBefore(title, svi);
+      })();
+
+      
+// Map each overlay layer to its legend control
       const layerToLegend = new Map([
         [transitLayer,  legendUsers],
         [sviLayer,      legendSVI],
@@ -490,6 +645,17 @@
         const legend = layerToLegend.get(e.layer);
         if (legend && legend._map) legend.remove();
       });
+
+      // Ensure SVI and Activity are mutually exclusive
+      map.on('overlayadd', (e) => {
+        if (e.layer === sviLayer && map.hasLayer(activityLayer)) {
+          map.removeLayer(activityLayer);
+        } else if (e.layer === activityLayer && map.hasLayer(sviLayer)) {
+          map.removeLayer(sviLayer);
+        }
+      });
+
+
 
       // Initial sync (after you add some layers to the map by default)
       for (const [layer, legend] of layerToLegend.entries()) {
