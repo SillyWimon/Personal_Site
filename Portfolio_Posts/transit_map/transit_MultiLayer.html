@@ -441,34 +441,61 @@
   const sidebarEl = document.getElementById('sidebar');
   const closeBtn = sidebarEl.querySelector('.sidebar-close');
 
-  // Use a class on <body> to hide legends, etc., while overlay is open
   function openSidebar() {
+    // mount overlay offscreen
     sidebarEl.classList.add('sidebar--overlay');
-    
+    // show close button & hide map controls
     closeBtn.hidden = false;
     document.body.classList.add('overlay-open');
+
+    // next frame: animate in
     requestAnimationFrame(() => {
-    // Step 3: now slide it in
       sidebarEl.classList.add('is-visible');
-  });
-
-
+    });
   }
+
   function closeSidebar() {
+    // nothing mounted? nothing to do
+    if (!sidebarEl.classList.contains('sidebar--overlay')) {
+      closeBtn.hidden = true;
+      document.body.classList.remove('overlay-open');
+      return;
+    }
+
+    // if it's not visible yet (e.g., initial load), unmount immediately
+    if (!sidebarEl.classList.contains('is-visible')) {
+      sidebarEl.classList.remove('sidebar--overlay');
+      closeBtn.hidden = true;
+      document.body.classList.remove('overlay-open');
+      return;
+    }
+
+    // animate out
     sidebarEl.classList.remove('is-visible');
-//Adding animation
-    sidebarEl.addEventListener('transitionend', () => {
-        sidebarEl.classList.remove('sidebar--overlay');
-      }, { once: true });
+
+    const onEnd = (e) => {
+      if (e.propertyName !== 'transform') return; // ignore other transitions
+      sidebarEl.classList.remove('sidebar--overlay'); // unmount after slide-out completes
+      sidebarEl.removeEventListener('transitionend', onEnd);
+    };
+    sidebarEl.addEventListener('transitionend', onEnd);
 
     closeBtn.hidden = true;
     document.body.classList.remove('overlay-open');
+
+    // safety net if transitionend doesn't fire
+    setTimeout(() => {
+      if (sidebarEl.classList.contains('sidebar--overlay') &&
+          !sidebarEl.classList.contains('is-visible')) {
+        sidebarEl.classList.remove('sidebar--overlay');
+      }
+    }, 400);
   }
 
   // Close button click
   closeBtn?.addEventListener('click', closeSidebar);
 
-  // Build a small Leaflet control with an “i” button (only matters on mobile)
+  // Build the “i” control
   const InfoControl = L.Control.extend({
     options: { position: 'topleft' },
     onAdd: function() {
@@ -484,22 +511,21 @@
   });
   const infoControl = new InfoControl();
 
-  // Watch for viewport changes to mount/unmount the control
+  // Responsive mount/unmount
   const mq = window.matchMedia('(max-width: 900px)');
   function handleMQ(e) {
     if (e.matches) {
-      // mobile: show info button, hide static sidebar
       if (!infoControl._map) infoControl.addTo(map);
-      // ensure sidebar starts closed on mobile
-      closeSidebar();
+      closeSidebar(); // ensure closed on enter-mobile
     } else {
-      // desktop: ensure overlay is closed and remove info button
       if (infoControl._map) map.removeControl(infoControl);
-      closeSidebar();
+      closeSidebar(); // ensure closed on exit-mobile
     }
   }
   handleMQ(mq);
   mq.addEventListener('change', handleMQ);
+
+
   // legendActivity.addTo(map);
   let stopsLayer;
   let StopsLegend;
