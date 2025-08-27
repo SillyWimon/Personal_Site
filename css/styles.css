@@ -349,7 +349,7 @@ footer a:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;          /* fills area and crops the excess */
-  object-position: 55% 55%;   /* adjust focal point; 50% 45% = slightly above center */
+  object-position: 60% 58%;   /* adjust focal point; 50% 45% = slightly above center */
   display: block;
 }
 
