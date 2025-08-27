@@ -177,9 +177,9 @@ footer a:hover {
   width: 100%;
 }
 
-@media (max-width: 600px) {
+/* @media (max-width: 600px) {
   .home {
-    background: none; /* Remove full background on mobile */
+    background: none; Remove full background on mobile
   }
   .hero-mobile {
     display: block;
@@ -187,8 +187,30 @@ footer a:hover {
     background: url(../images/SaltyPee.jpeg) no-repeat center top;
     background-size: cover;
     height: 250px;
+    outline:3px solid lime;
+  }  */
+
+  @media (max-width: 600px) {
+    .home {
+      background: none;
+      display: flex;            /* keep your flex layout */
+      flex-direction: column;
+    }
+    .hero-mobile {
+      display: block;
+      width: 100%;
+      flex: 0 0 35vh;           /* <-- prevents shrinking, sets height via basis */
+      min-height: 240px;        /* safety floor */
+      background: url(../images/SaltyPee.jpeg) no-repeat top center/cover ;
+      /* outline: 3px solid lime;  debug */
+      /* responsive height, with sensible min/max */
+      /* height: clamp(160px, 30dvh, 260px);
+      flex: 0 0 clamp(160px, 30dvh, 260px); parent is flex, so prevent shrinking */
+
+      /* optional spacing */
+      /* margin-bottom: 12px; */
+    }
   }
-}
 
 
 .home .content-wrapper {
@@ -313,6 +335,30 @@ footer a:hover {
   grid-template-columns: repeat(2, 1fr);
   gap: 30px;
 }
+
+.hero--portfolio {
+  position: relative;
+  width: 100%;
+  /* responsive landscape band, capped so it doesn't get huge */
+  height: clamp(180px, 32dvh, 320px);
+  overflow: hidden;
+}
+
+/* key lines: crop without distortion */
+.hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;          /* fills area and crops the excess */
+  object-position: 55% 55%;   /* adjust focal point; 50% 45% = slightly above center */
+  display: block;
+}
+
+.hero__overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.0));
+  display: flex; align-items: end; padding: 1rem;
+}
+.hero__overlay h1 { color: #fff; margin: 0; }
 
 @media screen and (max-width: 650px) {
   .portfolio .project-wrapper {
