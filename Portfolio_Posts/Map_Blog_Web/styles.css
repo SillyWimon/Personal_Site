@@ -66,7 +66,7 @@ textarea { min-height: 110px; resize: vertical; }
 .leaflet-control-geocoder { max-width: 280px; }
 
 .beta-badge{
-    position:fixed; left:12px; bottom:12px; z-index:2000;
+    position:fixed; right:12px; bottom:15px; z-index:2000;
     background:#111; color:#fff; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
     padding:8px 10px; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,.2);
     opacity:.92;
