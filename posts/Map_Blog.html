@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Map Blog (Beta): pin places, write stories | Willy Simon</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Map Blog is a simple, browser-only travel journaling app. Drop a pin, write a story, add a photo. Beta now live." />
+  <!-- Site-wide styles -->
+  <link rel="stylesheet" href="../css/styles.css" />
+
+  <!-- Post-specific styles -->
+  <style>
+    :root{
+      --post-max: 860px;
+      --post-pad: clamp(16px, 3vw, 28px);
+      --post-bg: #ffffff;
+      --page-bg: #fafafa;
+      --ink: #222;
+      --muted: #666;
+      --shadow: 0 2px 10px rgba(0,0,0,.06);
+      --radius: 10px;
+      --link: #0b63ce;
+    }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--page-bg);
+      color: var(--ink);
+      line-height: 1.6;
+      margin: 0;
+    }
+    main {
+      max-width: var(--post-max);
+      margin: 2rem auto;
+      padding: 0 var(--post-pad);
+    }
+    article {
+      background: var(--post-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--post-pad);
+    }
+    h1 {
+      margin: 0 0 .25rem;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin: 0 0 1.25rem;
+      font-size: 1rem;
+    }
+    h2 {
+      margin-top: 1.75rem;
+      margin-bottom: .5rem;
+      line-height: 1.25;
+    }
+    p { margin: .75rem 0; }
+    ul { padding-left: 1.25rem; margin: .5rem 0 1rem; }
+    li { margin: .35rem 0; }
+    .note {
+      background: #f4f7ff;
+      border: 1px solid #e5edff;
+      color: #243b6b;
+      padding: .75rem .9rem;
+      border-radius: 8px;
+      font-size: .95rem;
+    }
+    a { color: var(--link); }
+    .meta {
+      color: var(--muted);
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: .95rem;
+    }
+    hr {
+      border: 0;
+      height: 1px;
+      background: #eee;
+      margin: 1.25rem 0;
+    }
+    @media (max-width: 640px){
+      main { margin: 1rem auto; }
+      article { padding: clamp(14px, 4vw, 22px); }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <article>
+      <header>
+        <h1>Map Blog (Beta): pin places, write stories</h1>
+        <img src="images/MapBlogLandscape.jpg" alt="A Screenshot of Map Blog web Application" style="width:100%; height:auto; border-radius:10px; margin-bottom:0.5rem; border:1px solid black;"/>
+        <p class="subtitle">A tiny travel journaling app you can use right in your browser.</p>
+      </header>
+
+      <p>I once heard there are only two mistakes in life: <em>not starting</em> and <em>not finishing</em>. To fight my stack of half-finished projects, I’m putting one out there today: <strong>Map Blog (beta)</strong>.</p>
+
+      <h2>What it is</h2>
+      <p><strong>Map Blog</strong> is a simple web app for travel journaling. Drop a pin on a map, write a story or anecdote about that place, and (optionally) attach a photo. I’m using it to tell the story of the last year of nomading. I hope it’s useful for others in ways I haven't even thought about yet.</p>
+
+      <h2>How it works (no backend yet)</h2>
+      <ul>
+        <li>Runs entirely in your browser (built with <strong>Leaflet</strong> + vanilla JS).</li>
+        <li>Basemaps: <strong>OpenStreetMap</strong> and <strong>Carto Positron</strong>.</li>
+        <li>Your posts are saved to <strong>localStorage</strong> on your device—no login, no server.</li>
+        <li>You can <strong>Export</strong> to JSON/GeoJSON and <strong>Import</strong> it later to continue where you left off.</li>
+      </ul>
+      <p class="note"><strong>Privacy note:</strong> Because there’s no backend, I don’t see your data. It lives in your browser until you export it.</p>
+
+      <h2>Try it</h2>
+      <ul>
+        <li>💻 <strong>Best on desktop</strong> right now. Mobile is a work in progress.</li>
+        <li>✍️ <a href="https://www.sillywimon.com/Portfolio_Posts/Map_Blog_Web/index.html" target="_blank" rel="noopener noreferrer">Editable sandbox</a> — data is saved locally; you can export a backup.</li>
+      </ul>
+
+      <h2>Why/when I built it</h2>
+      <p>After finishing my FreeCodeCamp JavaScript certificate, I dove into this as a capstone. I’ve put ~20–25 hours in so far and plan to invest ~100 hours over the next couple months—small daily sprints while I keep learning.</p>
+
+      <h2>What’s missing / known quirks</h2>
+      <ul>
+        <li>No backend (yet). That means no account, no cloud sync, no shareable links.</li>
+        <li>Mobile layout needs love; DevTools emulation ≠ real devices (who knew!).</li>
+        <li>Large photos can bump into browser storage limits (I downscale in-browser, but it’s still possible).</li>
+      </ul>
+
+      <h2>Roadmap</h2>
+      <ul>
+        <li>Lightweight backend for <strong>accounts and sync</strong> (save your map across devices).</li>
+        <li><strong>Shareable links</strong> and “view only” public pages.</li>
+        <li><strong>Tags &amp; filters</strong>, better search, and small analytics (“posts per month,” etc.).</li>
+        <li><strong>D3 mini-charts</strong> inside the panel (post-by-month histogram, top tags).</li>
+        <li><strong>Progressive Web App</strong> (installable + offline).</li>
+      </ul>
+
+      <h2>Call for feedback</h2>
+      <p>Please kick the tires and tell me what’s confusing, missing, or delightful: <a href="mailto:wsimon8136@gmail.com">wsimon8136@gmail.com</a>.</p>
+
+      <hr />
+
+      <p class="meta">—Willy<br>
+        <time datetime="2025-09-08">September 8, 2025</time>
+      </p>
+    </article>
+  </main>
+</body>
+</html>
