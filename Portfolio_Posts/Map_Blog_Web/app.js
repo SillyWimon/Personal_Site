@@ -30,7 +30,7 @@ const osmStandard = L.tileLayer(
 // Map with max bounds & viscosity (so it "bounces" at edges)
 const map = L.map('map', {
     center: [20, 0],
-    zoom: 2,
+    zoom: 3,
     layers: [cartoLight],
     maxBounds: WORLD_BOUNDS,
     maxBoundsViscosity: 1.0,
