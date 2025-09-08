@@ -1,4 +1,7 @@
 //JS File for MAP BLOG BETA!
+// Map Blog™ — © 2025 Willy Simon. All rights reserved.
+// Built with Leaflet; map data © OpenStreetMap contributors.
+
 
 /********* MAP BASE *********/
 
@@ -1454,5 +1457,18 @@ map.whenReady(() => {
     fitToPosts();
     }
 });
+
+// Badge: year + mode label (keep Leaflet/OSM attribution separate)
+(function(){
+    const y = document.getElementById('app-year');
+    if (y) y.textContent = new Date().getFullYear();
+  
+    const modeEl = document.getElementById('badge-mode');
+    if (modeEl) {
+      const READONLY = new URLSearchParams(location.search).get('readonly') === '1';
+      modeEl.textContent = READONLY ? 'Read-only demo' : 'Beta sandbox';
+    }
+  })();
+  
 
 

@@ -1,4 +1,7 @@
 /*Map Blog Styles sheet!*/
+/* Map Blog™ — © 2025 Willy Simon. All rights reserved.
+Built with Leaflet; map data © OpenStreetMap contributors. */
+
 :root{
     --panelW: 440px;   /* desktop width (resizable) */
     --sheetH: 62vh;    /* mobile sheet height (resizable) */
@@ -65,12 +68,41 @@ textarea { min-height: 110px; resize: vertical; }
 .leaflet-control-layers { max-height:60vh; overflow:auto; box-shadow: 0 6px 18px rgba(0,0,0,.12); border-radius:10px; background:#fff; }
 .leaflet-control-geocoder { max-width: 280px; }
 
-.beta-badge{
+/* .beta-badge{
     position:fixed; right:12px; bottom:15px; z-index:2000;
     background:#111; color:#fff; font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
     padding:8px 10px; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,.2);
     opacity:.92;
   }
+
+small {
+    position:fixed; left:12px; bottom:5px; z-index:1000;
+    background:#111; color:#fff; font:11px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    padding:8px 10px; border-radius:10px; box-shadow:0 6px 16px rgba(0,0,0,.2);
+    opacity:.92;
+} */
+
+.app-badge{
+    position: fixed;
+    left: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+    z-index: 1000;
+    background: #111;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.2);
+    font: 13px/1.25 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    max-width: min(90vw, 780px);
+    pointer-events: none; /* let map clicks pass through */
+  }
+  .app-badge .tm { font-size: .9em; vertical-align: top; margin-left: 1px; }
+  .app-badge .sep { opacity: .35; }
+  @media (max-width: 480px){
+    .app-badge{ font-size: 12px; }
+  }
+  
   
 
 /*this helps highlight the post when one is selected or panned to*/

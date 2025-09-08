@@ -1,3 +1,7 @@
+<!-- Map Blog™ — © 2025 Willy Simon. All rights reserved.
+Built with Leaflet; map data © OpenStreetMap contributors. -->
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +18,14 @@
     <!-- Your styles -->
     <link rel="stylesheet" href="./styles.css" />
 </head>
+
+<div id="app-badge" class="app-badge" role="note" aria-live="polite">
+  <span>© <span id="app-year"></span> Willy Simon. <strong>Map Blog</strong><span class="tm">™</span> ·</span>
+  <span id="badge-mode">Beta sandbox</span>
+  <span class="sep">·</span>
+  <span>data stays on this device; export to back up</span>
+</div>
+
 <body>
   <div id="app">
     <!-- Top bar: desktop-first. (On mobile it still works; we’ll refine later.) -->
@@ -65,8 +77,7 @@
     <input id="file-import" type="file" accept=".json" style="display:none">
 
     <div id="add-cue" class="add-mode-cue">Add mode: click the map to place</div>
-
-    <div class="beta-badge">Beta sandbox • data stays on this device • export to back up</div>
+    
 
     <div id="map"></div>
 
