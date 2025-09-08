@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Map Blog Beta — v0.9</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+    <!-- Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <!-- Your styles -->
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar: desktop-first. (On mobile it still works; we’ll refine later.) -->
+    <div id="topbar" class="topbar">
+      <div class="brand">Map Blog</div>
+      <div class="sep"></div>
+      <input id="global-search" type="search" placeholder="Search posts… (title/place/text)" />
+      
+      <button class="btn" id="btn-list" title="Open posts list">Posts</button>
+      <button class="btn" id="btn-add" aria-pressed="false" title="Click to place a new post on the map">Add Post</button>
+      
+        <!-- options will be populated by JS -->
+      
+      
+      <select id="basemap-select" title="Basemap">
+        <option value="Carto Light">Carto Light</option>
+        <option value="OSM Standard">OSM Standard</option>
+      </select>
+      
+      <!-- <details class="menu" id="data-menu">
+        <summary class="btn">Data ▾</summary>
+        <div class="menu-pop">
+          <button class="btn" id="btn-export" type="button">Export JSON</button>
+          <button class="btn" id="btn-export-geo" type="button">Export GeoJSON</button>
+          <label class="btn" for="file-import">Import JSON</label>
+        </div>
+      </details> -->
+      <select id="data-select" title="Data">
+        <option value="" selected disabled>Data</option>
+        <option value="export">Export JSON</option>
+        <option value="exportgeo">Export GeoJSON</option>
+        <option value="import">Import JSON…</option>
+      </select>
+      
+    </div>
+
+     <!-- Below is just for Mobile: -->
+     <button id="fabAdd" class="fab" aria-label="Add post">＋</button>
+     <button id="fabPosts" class="fab fab--posts" aria-label="Open posts">Posts</button>
+     
+     <div id="addBar" class="addbar">
+       <button class="btn" id="gpsBtn">Use GPS</button>
+       <button class="btn primary" id="confirmBtn">Confirm</button>
+       <button class="btn" id="cancelBtn">Cancel</button>
+     </div>
+     
+     <div id="crosshair" class="crosshair" aria-hidden="true"></div>
+
+    <input id="file-import" type="file" accept=".json" style="display:none">
+
+    <div id="add-cue" class="add-mode-cue">Add mode: click the map to place</div>
+
+    <div id="map"></div>
+
+    <!-- Overlay Panel -->
+    <aside id="panel" aria-hidden="true">
+      <div id="panel-content"><!-- filled dynamically --></div>
+      <div id="panel-resizer" aria-hidden="true" title="Drag to resize"></div>
+    </aside>
+  </div>
+
+<!-- Vendor JS -->
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script defer src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<!-- Your app (defer so DOM is ready) -->
+<script defer src="./app.js"></script>
+
+<noscript>This app needs JavaScript enabled.</noscript>
+  
+</body>
+</html>
