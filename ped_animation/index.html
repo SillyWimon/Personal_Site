@@ -71,6 +71,55 @@
     #app { grid-template-columns: 1fr 1fr; } was 1.2 / 0.8 
   } */
 
+  /* Info drawer base */
+  #info-drawer {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    width: min(420px, 86vw);
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    border-right: 1px solid #e5e5e5;
+    transform: translateX(-100%);
+    transition: transform 220ms ease;
+    z-index: 9999; /* above map & legend */
+    display: flex; flex-direction: column;
+  }
+  #info-drawer.open { transform: translateX(0); }
+
+  #info-drawer .info-content {
+    padding: 16px 18px 24px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #info-close {
+    align-self: flex-end;
+    margin: 8px 8px 0 0;
+    width: 32px; height: 32px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff; cursor: pointer;
+    font-size: 20px; line-height: 28px;
+  }
+
+  /* Mobile: make it a full-screen sheet for readability */
+  @media (max-width: 900px) {
+    #info-drawer {
+      width: 100vw;
+      border-right: none;
+    }
+  }
+
+  /* Leaflet "i" control button */
+  .leaflet-control.info-button a {
+    display: inline-block;
+    width: 30px; height: 30px;
+    line-height: 30px; text-align: center;
+    background: #fff; border: 1px solid #ccc; border-radius: 6px;
+    font-weight: 700; color: #111; text-decoration: none;
+  }
+
+
   /* small screens: stack map over chart */
   @media (max-width: 900px) {
     #app {
@@ -128,6 +177,33 @@
     <span id="status"></span>
   </footer>
 </div>
+<!-- Info drawer -->
+<aside id="info-drawer" aria-hidden="true">
+  <button id="info-close" aria-label="Close">×</button>
+  <div class="info-content">
+    <h2>About this map</h2>
+    <p>
+      This visualization shows <b>pedestrian fatalities in the City of Albuquerque, 2012–2023</b>.
+      Use the year controls and facet tabs (Light, Hit &amp; Run, Facility, Substance) to explore
+      patterns over time. The SVI layer can be toggled in the map’s layer control.
+    </p>
+
+    <h3>Layers</h3>
+    <ul>
+      <li><b>Fatal Crashes (points):</b> City of Albuquerque crash records (cleaned &amp; normalized by author).</li>
+      <li><b>SVI (tracts):</b> The Social Vulnerability Index is a measure developed by the Centers for Disease Control and Prevention (CDC) using census tract–level data. It combines factors such as income, household composition, minority status, language, housing, and transportation to highlight areas where residents may be more vulnerable to social and environmental stresses. </li>
+      <li><b>Basemap:</b> © OpenStreetMap contributors.</li>
+    </ul>
+
+    <h3>Notes &amp; Attribution</h3>
+    <p>
+      Any errors or interpretations are my own. Please treat counts as subject to reporting and
+      geocoding limitations.
+    </p>
+    <p style="font-size:12px;opacity:.8">© Willy Simon</p>
+  </div>
+</aside>
+
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -456,6 +532,30 @@
         console.warn('SVI load failed:', err);
     }
     })();
+
+    // --- Info drawer toggling
+    const drawer = document.getElementById('info-drawer');
+    const closeBtn = document.getElementById('info-close');
+    function openInfo()  { drawer.classList.add('open');  drawer.setAttribute('aria-hidden','false'); }
+    function closeInfo() { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
+    closeBtn.addEventListener('click', closeInfo);
+    // optional: ESC to close
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo(); });
+
+    // --- Tiny "i" button as a Leaflet control (top-right)
+    const InfoControl = L.Control.extend({
+      onAdd: function() {
+        const div = L.DomUtil.create('div', 'leaflet-control info-button');
+        const a = L.DomUtil.create('a', '', div);
+        a.href = '#'; a.title = 'About this map'; a.textContent = 'i';
+        // prevent map drag/scroll when tapping the button
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.on(a, 'click', (e) => { e.preventDefault(); openInfo(); });
+        return div;
+      }
+    });
+    map.addControl(new InfoControl({ position: 'topright' }));
+
 
 
     function drawYear(Y) {
