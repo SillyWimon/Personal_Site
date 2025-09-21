@@ -317,6 +317,7 @@
   
   // ---- 2) Leaflet map
   const map = L.map("map", { zoomControl: true }).setView([35.0844, -106.6504], 11);
+  map.keyboard.disable();
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap"
   }).addTo(map);
