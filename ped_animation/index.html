@@ -84,6 +84,15 @@
     }
   }
 
+  /* prevent horizontal overflow on phones */
+  @media (max-width: 600px) {
+    input[type="range"] { width: min(60vw, 280px); }
+    footer { flex-wrap: wrap; row-gap: 6px; }  /* lets buttons wrap instead of pushing width */
+  }
+  /* make the SVG not create an extra inline gap */
+  #chart { display:block; }
+
+
 
 
 
@@ -532,6 +541,11 @@ function layoutChart() {
   width  = el.clientWidth  || 420;
   height = el.clientHeight || 400;
 
+  // responsive margins
+  margin = (width < 520)
+    ? { top: 52, right: 10, bottom: 28, left: 30 }
+    : { top: 56, right: 16, bottom: 32, left: 40 };
+
   svg.attr("width", width).attr("height", height);
 
   innerW = width  - margin.left - margin.right;
@@ -539,10 +553,22 @@ function layoutChart() {
 
   g.attr("transform", `translate(${margin.left},${margin.top})`);
 
+  // --- scales
   x.range([0, innerW]);
+
+  // adaptive band padding so bars don’t get razor thin
+  const MIN_BAR = 10;     // px
+  let pad = 0.15;
+  x.paddingInner(pad).paddingOuter(pad / 2);
+  let safety = 10;
+  while (x.bandwidth() < MIN_BAR && pad > 0 && safety-- > 0) {
+    pad = Math.max(0, pad - 0.03);
+    x.paddingInner(pad).paddingOuter(pad / 2).range([0, innerW]);
+  }
+
   y.domain([0, Math.ceil(maxTotal * 1.12)]).nice().range([innerH, 0]);
 
-  // choose a reasonable subset of year ticks based on available width
+  // --- axes (compute tickVals *before* using it)
   const approxLabelPx = 26;
   const maxTicks = Math.max(3, Math.floor(innerW / approxLabelPx));
   const step = Math.max(1, Math.ceil(years.length / maxTicks));
@@ -551,10 +577,11 @@ function layoutChart() {
   xAxis.tickValues(tickVals).tickFormat(d => String(d).slice(-2));
   xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
 
-  // redraw stacks and legend with the new geometry
+  // --- redraw
   rebuildStacks();
   highlightYear(years[idx]);
 }
+
 
 // Re-render when the right pane (or svg) resizes
 const ro = new ResizeObserver(() => layoutChart());
