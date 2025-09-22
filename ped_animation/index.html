@@ -476,7 +476,7 @@
         layerCtl.addOverlay(sviLayer, 'SVI (tracts)');
 
         // Turn it on by default
-        sviLayer.addTo(map);
+        // sviLayer.addTo(map);
 
         // Legend (auto-built from breaks)
         const sviLegend = L.control({ position: 'bottomright' });
@@ -524,7 +524,7 @@
         const showLegend = () => sviLegend.addTo(map);
         const hideLegend = () => map.removeControl(sviLegend);
 
-        showLegend(); // it's on by default
+        // showLegend(); // it's on by default
         map.on('overlayadd',  e => { if (e.layer === sviLayer) showLegend(); });
         map.on('overlayremove', e => { if (e.layer === sviLayer) hideLegend(); });
 
