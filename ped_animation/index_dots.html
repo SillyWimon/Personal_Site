@@ -520,11 +520,21 @@
     `;
 
     tools.querySelector("#yf-clear").addEventListener("click", () => {
-      yearFilterExplicit = false;             // back to timeline
+      // 1) facet off
+      facetFilter = null;
+
+      // 2) years back to baseline (timeline mode)
+      yearFilterExplicit = false;
       selectedYears.clear();
-      updateYearMaskOnChart(); updatePlayEnablement(); setFrame(0);
+
+      // 3) refresh UI + jump to first year
+      updateLegend();             // so "All" is active again
+      updateYearMaskOnChart();
+      updatePlayEnablement();
+      setFrame(0);
       drawYearDots();
     });
+
 
     tools.querySelector("#yf-all").addEventListener("click", () => {
       yearFilterExplicit = true;              // explicit-all
@@ -536,123 +546,6 @@
     host.appendChild(tools);
     updatePlayEnablement();
   }
-
-  
-  // function renderYearFiltersUI() {
-  //   const host = document.getElementById("year-filters");
-  //   host.innerHTML = "";
-
-  //   const group = document.createElement("div");
-  //   group.className = "group";
-  //   host.appendChild(group);
-
-  //   years.forEach(Y => {
-  //     const id = `ychk-${Y}`;
-  //     const lab = document.createElement("label");
-  //     lab.setAttribute("for", id);
-
-  //     const cb = document.createElement("input");
-  //     cb.type = "checkbox";
-  //     cb.id = id;
-  //     cb.value = String(Y);
-
-  //     // Start state:
-  //     // implicit mode => all shown => boxes appear checked
-  //     // explicit mode  => only selected shown => boxes reflect selectedYears
-
-  //     // After:
-  //     cb.checked = yearFilterExplicit ? selectedYears.has(Y) : false;
-
-
-  //     cb.addEventListener("change", () => {
-  //       // If we were in implicit-ALL mode and the user toggles anything,
-  //       // switch to explicit mode seeded from current checkboxes.
-  //       if (!yearFilterExplicit) {
-  //         yearFilterExplicit = true;
-  //         selectedYears.clear();
-  //         // Re-scan all boxes after this change applied
-  //         host.querySelectorAll('input[type="checkbox"]').forEach(box => {
-  //           if (box.checked) selectedYears.add(+box.value);
-  //         });
-  //       } else {
-  //         // Already in explicit mode: normal add/remove
-  //         if (cb.checked) selectedYears.add(Y); else selectedYears.delete(Y);
-  //       }
-
-  //       // After updating selectedYears...
-  //       const checkedCount = host.querySelectorAll('input[type="checkbox"]:checked').length;
-
-  //       // If none are checked → return to implicit timeline (original state)
-  //       if (checkedCount === 0) {
-  //         yearFilterExplicit = false;
-  //         selectedYears.clear();                  // boxes are already unchecked
-  //       }
-
-  //       // Otherwise stay in explicit mode, even if ALL are checked.
-  //       // (No auto-collapse; explicit-all means "draw all years".)
-  //       updateYearMaskOnChart();
-  //       updatePlayEnablement();
-  //       setFrame(idx);
-
-  //     });
-
-  //     const span = document.createElement("span");
-  //     span.textContent = Y;
-
-  //     lab.appendChild(cb);
-  //     lab.appendChild(span);
-  //     group.appendChild(lab);
-  //   });
-
-  //   // Tools
-  //   const tools = document.createElement("div");
-  //   tools.className = "tools";
-  //   tools.innerHTML = `
-  //     <button type="button" id="yf-clear">Clear</button>
-  //     <button type="button" id="yf-all">Select All</button>
-  //   `;
-
-  //   tools.querySelector("#yf-clear").addEventListener("click", () => {
-  //     yearFilterExplicit = false;             // implicit (timeline) mode
-  //     selectedYears.clear();
-  //     host.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-  //     updateYearMaskOnChart(); updatePlayEnablement(); setFrame(0);  // ← go to first year
-  //     drawYearDots();
-  //   });
-
-
-  //   tools.querySelector("#yf-all").addEventListener("click", () => {
-  //     yearFilterExplicit = true;              // explicit mode ON
-  //     selectedYears.clear();
-  //     years.forEach(Y => selectedYears.add(Y));
-  //     host.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-  //     updateYearMaskOnChart(); updatePlayEnablement(); setFrame(idx);
-  //     drawYearDots();
-  //   });
-  //   // can delete above probably but I want to make sure the below works - dunno why chaz went from queryselector to get eleemtnbyId, but it should work I think
-
-  //   // Clear → back to timeline @ first year
-  //   // (checkboxes unchecked; dots hollow; controls enabled)
-  //   // document.getElementById("yf-clear")?.addEventListener("click", () => {
-  //   //   yearFilterExplicit = false;
-  //   //   selectedYears.clear();
-  //   //   document.querySelectorAll('#year-filters input[type="checkbox"]').forEach(cb => cb.checked = false);
-  //   //   updateYearMaskOnChart(); updatePlayEnablement(); setFrame(0); drawYearDots();
-  //   // });
-
-  //   // // Select All → explicit-all (draw everything; controls disabled)
-  //   // document.getElementById("yf-all")?.addEventListener("click", () => {
-  //   //   yearFilterExplicit = true;
-  //   //   selectedYears.clear(); years.forEach(Y => selectedYears.add(Y));
-  //   //   document.querySelectorAll('#year-filters input[type="checkbox"]').forEach(cb => cb.checked = true);
-  //   //   updateYearMaskOnChart(); updatePlayEnablement(); setFrame(idx); drawYearDots();
-  //   // });
-
-
-  //   host.appendChild(tools);
-
-  //   updatePlayEnablement();
-  // }
 
 
   // render tabs
@@ -842,25 +735,16 @@
     map.addControl(new InfoControl({ position: 'topright' }));
 
 
-
-    function drawYear(Y) {
-      frameLayer.clearLayers();
-
-      // Decide which points to draw: either the current year (implicit mode)
-      // or the union of all selected years (explicit mode).
+    function pointsForCurrentView(Y){
+      // base: either current year (timeline) or union of selected years
       let pts;
       if (yearFilterExplicit) {
-        if (selectedYears.size === 0) {
-          // explicit mode but nothing checked => show nothing
-          pts = [];
-        } else {
-          pts = feats.filter(f => selectedYears.has(f._year));
-        }
+        pts = selectedYears.size ? feats.filter(f => selectedYears.has(f._year)) : [];
       } else {
         pts = byYear.get(Y) || [];
       }
 
-      // Apply facet filter if set
+      // facet filter (Night, Yes, etc.)
       if (facetFilter) {
         const unk = currentFacet.categories.find(c => /unknown/i.test(c)) || currentFacet.categories.at(-1);
         pts = pts.filter(f => {
@@ -869,8 +753,15 @@
           return v === facetFilter;
         });
       }
+      return pts;
+    }
 
-      // Draw markers
+
+    function drawYear(Y) {
+      frameLayer.clearLayers();
+
+      const pts = pointsForCurrentView(Y);
+
       pts.forEach(f => {
         const [lon, lat] = f.geometry.coordinates;
         L.circleMarker([lat, lon], {
@@ -902,7 +793,6 @@
         drawYear._fitted = true;
       }
     }
-
 
 
 
@@ -1225,38 +1115,34 @@ window.addEventListener("resize", layoutChart, { passive: true });
   const pauseMs = 2000; // pause per year (2s). Change this to taste.
 
 
-  function setFrame(i) {
-    idx = Math.max(0, Math.min(years.length - 1, i));
-    const Y = years[idx];
+    function setFrame(i) {
+      idx = Math.max(0, Math.min(years.length - 1, i));
+      const Y = years[idx];
 
-    let yrCount, labelText, statusPrefix;
-    if (yearFilterExplicit) {
-      const selCount = selectedYears.size;
-      const pts = feats.filter(f => selectedYears.has(f._year));
-      yrCount = pts.length;
-      labelText = selCount ? `${selCount} selected` : "—";   // ← instead of the long list
-      statusPrefix = `Selected ${selCount} year${selCount!==1?"s":""}`;
-    } else {
-      yrCount = (byYear.get(Y) || []).length;
-      labelText = `${Y}`;
-      statusPrefix = `Year ${idx + 1} / ${years.length}`;
+      // use the same source-of-truth points as the map
+      const ptsNow = pointsForCurrentView(Y);
+      const yrCount = ptsNow.length;
+
+      let labelText, statusPrefix;
+      if (yearFilterExplicit) {
+        const selCount = selectedYears.size;
+        labelText = selCount ? `${selCount} selected` : "—";
+        statusPrefix = `Selected ${selCount} year${selCount!==1?"s":""}`;
+      } else {
+        labelText = `${Y}`;
+        statusPrefix = `Year ${idx + 1} / ${years.length}`;
+      }
+
+      label.textContent = labelText;
+      const filtTxt = facetFilter ? ` • Filter: ${currentFacet.label} = ${facetFilter}` : "";
+      status.textContent = `${statusPrefix} • ${yrCount} points • ${feats.length} total${filtTxt}`;
+
+      slider.value = idx;
+
+      drawYear(Y);
+      highlightYear(Y);
+      if (typeof drawYearDots === "function") drawYearDots();
     }
-
-    label.textContent = labelText;
-
-    const filtTxt = facetFilter ? ` • Filter: ${currentFacet.label} = ${facetFilter}` : "";
-    status.textContent = `${statusPrefix} • ${yrCount} points • ${feats.length} total${filtTxt}`;
-
-    slider.value = idx;
-
-    drawYear(Y);
-    highlightYear(Y);
-    drawYearDots();
-  }
-
-
-
-  
 
 
   function play() {
