@@ -20,13 +20,28 @@
   
   /* Right column wrapper with its own two-row grid */
    /* change */
-  #right-pane {
+   #right-pane {
     grid-column: 2;
     grid-row: 2;
     display: grid;
-    grid-template-rows: auto 1fr auto;  /* tabs, chart, year filters */
+    grid-template-rows: auto 1fr min-content; /* tabs, chart, buttons */
     border-left: 1px solid #eee;
+    align-content: start;                     /* keeps rows from stretching */
   }
+
+  #year-filters {
+    align-self: start;
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+
+  /* optional: extra-tight on small screens */
+  @media (max-width: 900px) {
+    #year-filters { padding-block: 3px; }
+    /* #year-filters { border-top: 0; }  <-- uncomment if you want less visual weight */
+  }
+
 
   /* Tabs bar aligns to the right inside its row */
   #chart-tabs {
@@ -337,12 +352,41 @@
   // Helper for ticker height
   function measureTickHeight() {
     let h = 0;
-    xAxisG.selectAll("text").each(function() {
-      const b = this.getBBox?.();
-      if (b && b.height) h = Math.max(h, b.height);
+
+    // Prefer client rects; Safari is more reliable here than getBBox()
+    xAxisG.selectAll("text").each(function () {
+      if (this.getBoundingClientRect) {
+        const r = this.getBoundingClientRect();
+        if (r && r.height) h = Math.max(h, r.height);
+      }
     });
-    return Math.max(12, Math.ceil(h)); // sensible fallback
+
+    // Fallback if nothing measured yet
+    if (!h) {
+      xAxisG.selectAll("text").each(function () {
+        if (this.getBBox) {
+          const b = this.getBBox();
+          if (b && b.height) h = Math.max(h, b.height);
+        }
+      });
+    }
+
+    // Last-ditch: synthesize from font-size
+    if (!h) {
+      const sample = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      sample.textContent = "88";
+      sample.setAttribute("x", "-9999");
+      sample.setAttribute("y", "-9999");
+      svg.node().appendChild(sample);
+      const sr = sample.getBoundingClientRect?.();
+      h = (sr && sr.height) ? sr.height : 12;
+      sample.remove();
+    }
+
+    return Math.ceil(h);
   }
+
+  let _secondPassScheduled = false;
 
 
   // add once near the top
@@ -903,6 +947,14 @@ function layoutChart() {
 
   // ---- measure & recompute bottom margin
   tickLabelH = measureTickHeight();
+
+  // Safari sometimes returns ~0 on first paint; re-run once on next frame
+  if (tickLabelH < 8 && !_secondPassScheduled) {
+    _secondPassScheduled = true;
+    requestAnimationFrame(layoutChart);
+    return;
+  }
+
   tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));      // ~20% of label height
   dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10)); // dot row + a little cushion
   // margin.bottom = (w < 520 ? 6 : 8) + tickLabelH + dotBandH; I think tickGap addresses this now
