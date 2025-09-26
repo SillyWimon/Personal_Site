@@ -334,6 +334,10 @@
     return null; // unknown
   }
 
+  // add once near the top
+  const last = (arr) => arr[arr.length - 1];
+
+
   // Alcohol/Drug combo → "Neither", "Alcohol Only", "Drug Only", "Both"
   function normSubstance(p){
     const alc  = getInvolved(p, ["ALCOHOL INVOLVEMENT","ALCOHOL_INVOLVEMENT","Alcohol involvement","ALCOHOL"]);
@@ -746,7 +750,7 @@
 
       // facet filter (Night, Yes, etc.)
       if (facetFilter) {
-        const unk = currentFacet.categories.find(c => /unknown/i.test(c)) || currentFacet.categories.at(-1);
+        const unk = currentFacet.categories.find(c => /unknown/i.test(c)) || last(currentFacet.categories);
         pts = pts.filter(f => {
           let v = currentFacet.accessor(f);
           if (v == null || !currentFacet.categories.includes(v)) v = unk;
@@ -900,7 +904,7 @@ window.addEventListener("resize", layoutChart, { passive: true });
         facet.categories.forEach(c => row[c] = 0);
 
         // pick a valid unknown bucket from the facet
-        const unknownKey = facet.categories.find(c => /unknown/i.test(c)) || facet.categories.at(-1);
+        const unknownKey = facet.categories.find(c => /unknown/i.test(c)) || last(currentFacet.categories);
 
         list.forEach(f => {
           let v = facet.accessor(f);
