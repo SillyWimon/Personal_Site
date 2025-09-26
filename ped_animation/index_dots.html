@@ -33,7 +33,10 @@
     align-self: start;
     padding: 4px 8px;
     gap: 8px;
+    border-top: 1px solid #eee;
+    font: 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   }
+
 
 
   /* optional: extra-tight on small screens */
@@ -138,15 +141,17 @@
 
 
   /* new */
-  #year-filters {
-    padding: 3px 6px;
+  #year-filters{
+    align-self: start;
     display: flex;
     flex-wrap: wrap;
     gap: 8px 10px;
-    align-items: center;
+    padding: 4px 8px;
     border-top: 1px solid #eee;
     font: 12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   }
+
+
   #year-filters .group {
     display: contents; /* let items wrap nicely */
   }
@@ -894,6 +899,11 @@ let tickGap = 4; //trying to get some breathing room
 let margin = { top: 56, right: 16, bottom: 32, left: 40 };
 let width = 0, height = 0, innerW = 0, innerH = 0;
 
+//Trying to make this work on mobile:
+const BOTTOM_FLOOR_MOBILE  = 72; // px – enough for ticks + dots on iPhone
+const BOTTOM_FLOOR_DESKTOP = 48; // px – a safe minimum on desktop
+
+
 const g = svg.append("g");                         // transform set in layoutChart()
 const x = d3.scaleBand().domain(years).padding(0.15);
 const y = d3.scaleLinear();
@@ -963,6 +973,13 @@ function layoutChart() {
   const bottomGutter = (width < 520 ? 6 : 8);
   margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH;
 
+  const isMobile = width < 520;
+  margin.bottom = Math.max(
+    margin.bottom,
+    isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP
+  );
+
+
   // recompute inner box with the *final* bottom margin
   innerH = height - margin.top - margin.bottom;
   y.range([innerH, 0]);
@@ -972,7 +989,18 @@ function layoutChart() {
   drawYearDots();
   rebuildStacks();
   highlightYear(years[idx]);
+  _secondPassScheduled = false;
+
 }
+
+// run a second, accurate layout once fonts are ready (iOS Safari fix)
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => {
+    _secondPassScheduled = false;
+    layoutChart();
+  });
+}
+
 
 
 
