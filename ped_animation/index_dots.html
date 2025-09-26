@@ -334,6 +334,17 @@
     return null; // unknown
   }
 
+  // Helper for ticker height
+  function measureTickHeight() {
+    let h = 0;
+    xAxisG.selectAll("text").each(function() {
+      const b = this.getBBox?.();
+      if (b && b.height) h = Math.max(h, b.height);
+    });
+    return Math.max(12, Math.ceil(h)); // sensible fallback
+  }
+
+
   // add once near the top
   const last = (arr) => arr[arr.length - 1];
 
@@ -457,8 +468,11 @@
   function drawYearDots(){
     if (!dotsG) dotsG = svg.append("g").attr("class","year-dots");
 
-    const r = 6;                       // “dot” half-size
-    const yDots = innerH + 28;         // below the x-axis
+    const r = DOT_R;
+    // centered in the dot band, placed below tick labels with measured gap
+    const yDots = innerH + tickLabelH + tickGap + Math.round(dotBandH / 2);
+
+
     const sel = dotsG.selectAll("g.dot").data(years, d=>d);
 
     const enter = sel.enter().append("g")
@@ -483,6 +497,8 @@
 
     sel.exit().remove();
   }
+
+
 
 
 
@@ -824,6 +840,12 @@ const pct1 = n => (isFinite(n) ? (n*100).toFixed(1) + '%' : '—');
   // ---- 3) D3 Bar chart (responsive)
 const svg = d3.select("#chart");
 
+// dynamic sizing for the row under the axis
+const DOT_R = 6;                 // dot radius
+let tickLabelH = 14;             // measured later from axis text
+let dotBandH   = DOT_R * 2 + 8;  // dot row height (dot + cushion)
+let tickGap = 4; //trying to get some breathing room
+
 // mutable sizing vars (so we can recompute on resize)
 let margin = { top: 56, right: 16, bottom: 32, left: 40 };
 let width = 0, height = 0, innerW = 0, innerH = 0;
@@ -840,27 +862,25 @@ const maxTotal = d3.max(countsByYear, d => d[1]) || 0; // totals don’t change 
 
 function layoutChart() {
   const el = document.getElementById("chart");
-  width  = el.clientWidth  || 420;
-  height = el.clientHeight || 400;
+  const rect = el.getBoundingClientRect();
+  const w = el.clientWidth || rect.width || 420;
+  const h = el.clientHeight || rect.height || 400;
 
-  // responsive margins
-  margin = (width < 520)
-    ? { top: 52, right: 10, bottom: 48, left: 30 }  // ↑ was ~35
-    : { top: 56, right: 16, bottom: 44, left: 40 }; // ↑ add ~12–16px
+  // base margins (without ticks/dots)
+  const baseSmall = { top: 52, right: 10, bottom: 6,  left: 30 };
+  const baseLarge = { top: 56, right: 16, bottom: 8,  left: 40 };
+  margin = (w < 520) ? { ...baseSmall } : { ...baseLarge };
 
-
+  width = w; height = h;
   svg.attr("width", width).attr("height", height);
 
+  // first pass with minimal bottom to place the axis for measurement
   innerW = width  - margin.left - margin.right;
   innerH = height - margin.top  - margin.bottom;
-
   g.attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // --- scales
   x.range([0, innerW]);
-
-  // adaptive band padding so bars don’t get razor thin
-  const MIN_BAR = 10;     // px
+  const MIN_BAR = 10;
   let pad = 0.15;
   x.paddingInner(pad).paddingOuter(pad / 2);
   let safety = 10;
@@ -869,9 +889,10 @@ function layoutChart() {
     x.paddingInner(pad).paddingOuter(pad / 2).range([0, innerW]);
   }
 
+  // set y (temporary range)
   y.domain([0, Math.ceil(maxTotal * 1.12)]).nice().range([innerH, 0]);
 
-  // --- axes (compute tickVals *before* using it)
+  // ticks for this width
   const approxLabelPx = 26;
   const maxTicks = Math.max(3, Math.floor(innerW / approxLabelPx));
   const step = Math.max(1, Math.ceil(years.length / maxTicks));
@@ -880,11 +901,28 @@ function layoutChart() {
   xAxis.tickValues(tickVals).tickFormat(d => String(d).slice(-2));
   xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
 
-  // --- redraw
+  // ---- measure & recompute bottom margin
+  tickLabelH = measureTickHeight();
+  tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));      // ~20% of label height
+  dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10)); // dot row + a little cushion
+  // margin.bottom = (w < 520 ? 6 : 8) + tickLabelH + dotBandH; I think tickGap addresses this now
+
+  // now that we know the true space, rebuild bottom margin
+  const bottomGutter = (width < 520 ? 6 : 8);
+  margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH;
+
+  // recompute inner box with the *final* bottom margin
+  innerH = height - margin.top - margin.bottom;
+  y.range([innerH, 0]);
+  xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
+
+  // draw
   drawYearDots();
   rebuildStacks();
   highlightYear(years[idx]);
 }
+
+
 
 
 // Re-render when the right pane (or svg) resizes
