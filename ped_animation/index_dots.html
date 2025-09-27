@@ -923,12 +923,113 @@ const xAxisG = g.append("g").attr("class", "x-axis");
 const maxTotal = d3.max(countsByYear, d => d[1]) || 0; // totals don’t change by facet
 
 
+// function layoutChart() {
+//   const el = document.getElementById("chart");
+//   const rect = el.getBoundingClientRect();
+//   const w = el.clientWidth || rect.width || 420;
+//   const h = el.clientHeight || rect.height || 400;
+//   const EXTRA_BELOW_DOTS = 0;   // tiny interior cushion under the dot row
+
+
+//   // base margins (without ticks/dots)
+//   const baseSmall = { top: 52, right: 10, bottom: 6,  left: 30 };
+//   const baseLarge = { top: 56, right: 16, bottom: 8,  left: 40 };
+//   margin = (w < 520) ? { ...baseSmall } : { ...baseLarge };
+
+//   width = w; height = h;
+//   svg.attr("width", width).attr("height", height);
+
+//   // first pass with minimal bottom to place the axis for measurement
+//   innerW = width  - margin.left - margin.right;
+//   innerH = height - margin.top  - margin.bottom;
+//   g.attr("transform", `translate(${margin.left},${margin.top})`);
+
+//   x.range([0, innerW]);
+//   const MIN_BAR = 10;
+//   let pad = 0.15;
+//   x.paddingInner(pad).paddingOuter(pad / 2);
+//   let safety = 10;
+//   while (x.bandwidth() < MIN_BAR && pad > 0 && safety-- > 0) {
+//     pad = Math.max(0, pad - 0.03);
+//     x.paddingInner(pad).paddingOuter(pad / 2).range([0, innerW]);
+//   }
+
+//   // set y (temporary range)
+//   y.domain([0, Math.ceil(maxTotal * 1.12)]).nice().range([innerH, 0]);
+
+//   // ticks for this width
+//   const approxLabelPx = 26;
+//   const maxTicks = Math.max(3, Math.floor(innerW / approxLabelPx));
+//   const step = Math.max(1, Math.ceil(years.length / maxTicks));
+//   const tickVals = years.filter((_, i) => i % step === 0);
+
+//   xAxis.tickValues(tickVals).tickFormat(d => String(d).slice(-2));
+//   xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
+
+//   // ---- measure & recompute bottom margin
+//   tickLabelH = measureTickHeight();
+
+//   // Safari sometimes returns ~0 on first paint; re-run once on next frame
+//   if (tickLabelH < 8 && !_secondPassScheduled) {
+//     _secondPassScheduled = true;
+//     requestAnimationFrame(layoutChart);
+//     return;
+//   }
+
+//   // tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));      // ~20% of label height
+//   // dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10)); // dot row + a little cushion
+//   // // margin.bottom = (w < 520 ? 6 : 8) + tickLabelH + dotBandH; I think tickGap addresses this now
+
+//   // // now that we know the true space, rebuild bottom margin
+//   // const bottomGutter = (width < 520 ? 6 : 8);
+//   // margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + EXTRA_BELOW_DOTS;
+
+//   // const isMobile = width < 520;
+//   // margin.bottom = Math.max(
+//   //   margin.bottom,
+//   //   isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP
+//   // ); //trying to fix the above with a new snippet below that is similar
+
+//   tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));
+//   dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10));
+
+//   // 1. Calculate FINAL margin.bottom
+//   const bottomGutter = (width < 520 ? 6 : 8);
+//   margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + EXTRA_BELOW_DOTS;
+
+//   const isMobile = width < 520;
+//   margin.bottom = Math.max(
+//     margin.bottom,
+//     isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP
+//   );
+
+
+//   // recompute inner box with the *final* bottom margin
+//   innerH = height - margin.top - margin.bottom;
+//   y.range([innerH, 0]);
+//   xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
+
+
+
+//   // draw
+//   drawYearDots();
+//   rebuildStacks();
+//   highlightYear(years[idx]);
+//   _secondPassScheduled = false;
+
+// }
+
+
+//new layoutChart attempt, can go back to above version if necessary: 
+
+// ... D3 setup code above ...
+
 function layoutChart() {
   const el = document.getElementById("chart");
   const rect = el.getBoundingClientRect();
   const w = el.clientWidth || rect.width || 420;
   const h = el.clientHeight || rect.height || 400;
-  const EXTRA_BELOW_DOTS = 0;   // tiny interior cushion under the dot row
+  const EXTRA_BELOW_DOTS = 0; // tiny interior cushion under the dot row
 
 
   // base margins (without ticks/dots)
@@ -939,9 +1040,10 @@ function layoutChart() {
   width = w; height = h;
   svg.attr("width", width).attr("height", height);
 
-  // first pass with minimal bottom to place the axis for measurement
+  // first pass: set temporary innerH for axis placement/measurement
   innerW = width  - margin.left - margin.right;
-  innerH = height - margin.top  - margin.bottom;
+  // NOTE: using a temporary, small margin.bottom here is key for the first pass
+  innerH = height - margin.top  - margin.bottom; 
   g.attr("transform", `translate(${margin.left},${margin.top})`);
 
   x.range([0, innerW]);
@@ -976,11 +1078,13 @@ function layoutChart() {
     return;
   }
 
-  tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));      // ~20% of label height
-  dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10)); // dot row + a little cushion
-  // margin.bottom = (w < 520 ? 6 : 8) + tickLabelH + dotBandH; I think tickGap addresses this now
+  // -------------------------------------------------------------------
+  // 🎯 THE CRITICAL FIX ZONE 🎯
+  // -------------------------------------------------------------------
+  tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));
+  dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10));
 
-  // now that we know the true space, rebuild bottom margin
+  // 1. Calculate FINAL margin.bottom
   const bottomGutter = (width < 520 ? 6 : 8);
   margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + EXTRA_BELOW_DOTS;
 
@@ -990,18 +1094,23 @@ function layoutChart() {
     isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP
   );
 
+  // 2. Recalculate innerH using the FINAL margin.bottom
+  //    This value is now CORRECT and constrained by the available grid space.
+  innerH = height - margin.top  - margin.bottom;
 
-  // recompute inner box with the *final* bottom margin
-  innerH = height - margin.top - margin.bottom;
+  // 3. Update the Y-scale range and the X-axis position to the new, constrained innerH
   y.range([innerH, 0]);
-  xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis);
+  xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis); 
 
+  // 4. Call ALL the drawing/redrawing functions so they use the new, correct innerH
+  //    (This is your existing redraw block)
+  // -------------------------------------------------------------------
+  
   // draw
   drawYearDots();
   rebuildStacks();
   highlightYear(years[idx]);
   _secondPassScheduled = false;
-
 }
 
 // run a second, accurate layout once fonts are ready (iOS Safari fix)
