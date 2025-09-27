@@ -198,8 +198,8 @@
 
   /* add space between chart and footer on phones */
   @media (max-width: 900px) {
-    #app { row-gap: 10px; }          /* space between rows (map→chart→footer) */
-    footer { padding-top: 12px; }     /* a little extra cushion for iOS */
+    #app { row-gap: 1px; }          /* space between rows (map→chart→footer) */
+    footer { padding-top: 1px; }     /* a little extra cushion for iOS */
   }
 
   /* Compact SVI legend on phones */
@@ -239,7 +239,15 @@
   <div id="right-pane">
     <div id="chart-tabs"></div>
     <svg id="chart"></svg>
-    <div id="year-filters" aria-label="Year filters"></div>
+    <div id="year-filters" aria-label="Year filters">
+      <!-- tools row -->
+      <div class="tools">
+        <button type="button" id="yf-clear">Clear</button>
+        <button type="button" id="yf-all">Select All</button>
+      </div>
+      <!-- optional: keep a spot for per-year checkboxes later -->
+      <div class="group" id="year-checkboxes"></div>
+    </div>    
   </div>
   
 
@@ -519,8 +527,7 @@
 
     const r = DOT_R;
     // centered in the dot band, placed below tick labels with measured gap
-    const yDots = innerH + tickLabelH + tickGap + Math.round(dotBandH / 2);
-
+    const yDots = innerH + tickLabelH + tickGap + Math.round(dotBandH / 2) + 2;
 
     const sel = dotsG.selectAll("g.dot").data(years, d=>d);
 
@@ -577,44 +584,44 @@
   const years = Array.from(new Set(feats.map(f => f._year))).sort((a,b) => a - b);
   const byYear = d3.group(feats, f => f._year);
 
-  function renderYearFiltersUI() {
-    const host = document.getElementById("year-filters");
-    host.innerHTML = "";
+  // function renderYearFiltersUI() {
+  //   const host = document.getElementById("year-filters");
+  //   host.innerHTML = "";
 
-    const tools = document.createElement("div");
-    tools.className = "tools";
-    tools.innerHTML = `
-      <button type="button" id="yf-clear">Clear</button>
-      <button type="button" id="yf-all">Select All</button>
-    `;
+  //   const tools = document.createElement("div");
+  //   tools.className = "tools";
+  //   tools.innerHTML = `
+  //     <button type="button" id="yf-clear">Clear</button>
+  //     <button type="button" id="yf-all">Select All</button>
+  //   `;
 
-    tools.querySelector("#yf-clear").addEventListener("click", () => {
-      // 1) facet off
-      facetFilter = null;
+  //   tools.querySelector("#yf-clear").addEventListener("click", () => {
+  //     // 1) facet off
+  //     facetFilter = null;
 
-      // 2) years back to baseline (timeline mode)
-      yearFilterExplicit = false;
-      selectedYears.clear();
+  //     // 2) years back to baseline (timeline mode)
+  //     yearFilterExplicit = false;
+  //     selectedYears.clear();
 
-      // 3) refresh UI + jump to first year
-      updateLegend();             // so "All" is active again
-      updateYearMaskOnChart();
-      updatePlayEnablement();
-      setFrame(0);
-      drawYearDots();
-    });
+  //     // 3) refresh UI + jump to first year
+  //     updateLegend();             // so "All" is active again
+  //     updateYearMaskOnChart();
+  //     updatePlayEnablement();
+  //     setFrame(0);
+  //     drawYearDots();
+  //   });
 
 
-    tools.querySelector("#yf-all").addEventListener("click", () => {
-      yearFilterExplicit = true;              // explicit-all
-      selectedYears.clear(); years.forEach(Y => selectedYears.add(Y));
-      updateYearMaskOnChart(); updatePlayEnablement(); setFrame(idx);
-      drawYearDots();
-    });
+  //   tools.querySelector("#yf-all").addEventListener("click", () => {
+  //     yearFilterExplicit = true;              // explicit-all
+  //     selectedYears.clear(); years.forEach(Y => selectedYears.add(Y));
+  //     updateYearMaskOnChart(); updatePlayEnablement(); setFrame(idx);
+  //     drawYearDots();
+  //   });
 
-    host.appendChild(tools);
-    updatePlayEnablement();
-  }
+  //   host.appendChild(tools);
+  //   updatePlayEnablement();
+  // }
 
 
   // render tabs
@@ -900,8 +907,8 @@ let margin = { top: 56, right: 16, bottom: 32, left: 40 };
 let width = 0, height = 0, innerW = 0, innerH = 0;
 
 //Trying to make this work on mobile:
-const BOTTOM_FLOOR_MOBILE  = 72; // px – enough for ticks + dots on iPhone
-const BOTTOM_FLOOR_DESKTOP = 48; // px – a safe minimum on desktop
+const BOTTOM_FLOOR_MOBILE  = 12; // px – enough for ticks + dots on iPhone
+const BOTTOM_FLOOR_DESKTOP = 18; // px – a safe minimum on desktop
 
 
 const g = svg.append("g");                         // transform set in layoutChart()
@@ -919,6 +926,8 @@ function layoutChart() {
   const rect = el.getBoundingClientRect();
   const w = el.clientWidth || rect.width || 420;
   const h = el.clientHeight || rect.height || 400;
+  const EXTRA_BELOW_DOTS = 0;   // tiny interior cushion under the dot row
+
 
   // base margins (without ticks/dots)
   const baseSmall = { top: 52, right: 10, bottom: 6,  left: 30 };
@@ -971,7 +980,7 @@ function layoutChart() {
 
   // now that we know the true space, rebuild bottom margin
   const bottomGutter = (width < 520 ? 6 : 8);
-  margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH;
+  margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + EXTRA_BELOW_DOTS;
 
   const isMobile = width < 520;
   margin.bottom = Math.max(
@@ -1305,9 +1314,49 @@ window.addEventListener("resize", layoutChart, { passive: true });
     }
   });
 
+  // --- Wire up the real HTML Year Filter buttons
+  function initYearFilterButtons() {
+    const clearBtn = document.getElementById('yf-clear');
+    const allBtn   = document.getElementById('yf-all');
+
+    if (!clearBtn || !allBtn) return; // defensive
+
+    clearBtn.addEventListener('click', () => {
+      // 1) turn facet filter off
+      facetFilter = null;
+
+      // 2) reset years to timeline mode
+      yearFilterExplicit = false;
+      selectedYears.clear();
+
+      // 3) refresh UI + jump to first year
+      updateLegend();
+      updateYearMaskOnChart();
+      updatePlayEnablement();
+      setFrame(0);
+      drawYearDots();
+    });
+
+    allBtn.addEventListener('click', () => {
+      yearFilterExplicit = true;            // explicit-all
+      selectedYears.clear();
+      years.forEach(Y => selectedYears.add(Y));
+
+      updateYearMaskOnChart();
+      updatePlayEnablement();
+      setFrame(idx);                        // stay on current frame
+      drawYearDots();
+    });
+
+    // run once at startup so buttons reflect current mode
+    updatePlayEnablement();
+  }
+
+
 
   // init
-  renderYearFiltersUI();
+  // renderYearFiltersUI();
+  initYearFilterButtons();
   layoutChart();
   setFrame(0);
 })();
