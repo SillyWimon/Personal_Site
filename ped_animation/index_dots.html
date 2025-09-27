@@ -59,15 +59,12 @@
   #chart {
     width: 100%;
     height: 100%;
-    /* overflow: visible; */
+    overflow: hidden;
     /* Ensure it aligns at the top of its grid cell */
     align-self: stretch;
     justify-self: stretch;
+    display: block;
   }
-
-  /* make the SVG not create an extra inline gap */
-  /* #chart { display:block; } */
-
 
 
   header { grid-column: 1 / -1; padding: 8px 12px; border-bottom: 1px solid #eee; }
