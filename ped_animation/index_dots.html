@@ -18,16 +18,24 @@
     height: 100vh;
   }
   
-  /* Right column wrapper with its own two-row grid */
-   /* change */
-   #right-pane {
-    grid-column: 2;
-    grid-row: 2;
-    display: grid;
-    grid-template-rows: auto 1fr min-content; /* tabs, chart, buttons */
-    border-left: 1px solid #eee;
-    align-content: stretch;                     /* keeps rows from stretching - changed "start" to stretch */
+  #right-pane {
+     grid-column: 2;
+     grid-row: 2;
+     display: flex;
+     flex-direction: column;
+     border-left: 1px solid #eee;
+     min-height: 0; /* Allow shrinking */
+   }
+   
+   #chart {
+     flex: 1;
+     min-height: 200px; /* Prevent collapse */
+   }
+
+  @media (max-width: 520px) {
+    #right-pane { grid-template-rows: auto minmax(220px, 1fr) min-content; row-gap: 10px; }
   }
+
 
   #year-filters {
     align-self: start;
@@ -59,7 +67,7 @@
   #chart {
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    overflow: visible;
     /* Ensure it aligns at the top of its grid cell */
     align-self: stretch;
     justify-self: stretch;
@@ -364,44 +372,25 @@
     return null; // unknown
   }
 
-  // Helper for ticker height
   function measureTickHeight() {
-    let h = 0;
-
-    // Prefer client rects; Safari is more reliable here than getBBox()
-    xAxisG.selectAll("text").each(function () {
-      if (this.getBoundingClientRect) {
-        const r = this.getBoundingClientRect();
-        if (r && r.height) h = Math.max(h, r.height);
-      }
-    });
-
-    // Fallback if nothing measured yet
-    if (!h) {
-      xAxisG.selectAll("text").each(function () {
-        if (this.getBBox) {
-          const b = this.getBBox();
-          if (b && b.height) h = Math.max(h, b.height);
-        }
-      });
-    }
-
-    // Last-ditch: synthesize from font-size
-    if (!h) {
-      const sample = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      sample.textContent = "88";
-      sample.setAttribute("x", "-9999");
-      sample.setAttribute("y", "-9999");
-      svg.node().appendChild(sample);
-      const sr = sample.getBoundingClientRect?.();
-      h = (sr && sr.height) ? sr.height : 12;
-      sample.remove();
-    }
-
-    return Math.ceil(h);
-  }
+     // Use a more reliable fallback approach
+     let h = 16; // reasonable default
+     
+     xAxisG.selectAll("text").each(function () {
+       const computed = window.getComputedStyle(this);
+       const fontSize = parseFloat(computed.fontSize) || 12;
+       h = Math.max(h, fontSize * 1.2); // reasonable line-height multiplier
+     });
+     
+     return Math.ceil(h);
+   }
 
   let _secondPassScheduled = false;
+
+  let showDots = true;
+  const DOTS_HIDE_W = 500;  // hide below this
+  const DOTS_SHOW_W = 540;  // show above this
+
 
 
   // add once near the top
@@ -525,11 +514,12 @@
   }
 
   function drawYearDots(){
+    if (!showDots) { if (dotsG) { dotsG.remove(); dotsG = null; } return; }
+
     if (!dotsG) dotsG = svg.append("g").attr("class","year-dots");
 
     const r = DOT_R;
-    // centered in the dot band, placed below tick labels with measured gap
-    const yDots = innerH + tickLabelH + tickGap + Math.round(dotBandH / 2) + 2;
+    const yDots = innerH + tickLabelH + tickGap + Math.round(dotBandH / 2) + 2; // keep your +2nudge
 
     const sel = dotsG.selectAll("g.dot").data(years, d=>d);
 
@@ -909,8 +899,8 @@ let margin = { top: 56, right: 16, bottom: 32, left: 40 };
 let width = 0, height = 0, innerW = 0, innerH = 0;
 
 //Trying to make this work on mobile:
-const BOTTOM_FLOOR_MOBILE  = 12; // px – enough for ticks + dots on iPhone
-const BOTTOM_FLOOR_DESKTOP = 18; // px – a safe minimum on desktop
+const BOTTOM_FLOOR_MOBILE  = 72; // px – enough for ticks + dots on iPhone
+const BOTTOM_FLOOR_DESKTOP = 48; // px – a safe minimum on desktop
 
 
 const g = svg.append("g");                         // transform set in layoutChart()
@@ -1024,13 +1014,28 @@ const maxTotal = d3.max(countsByYear, d => d[1]) || 0; // totals don’t change 
 
 // ... D3 setup code above ...
 
+// Move this outside layoutChart, only change on significant width changes
+let lastWidth = 0;
+const WIDTH_THRESHOLD = 50; // only recalculate if width changes significantly
+
+function updateDotsVisibility(w) {
+  if (Math.abs(w - lastWidth) < WIDTH_THRESHOLD) return;
+  lastWidth = w;
+  
+  if (w >= DOTS_SHOW_W) showDots = true;
+  else if (w <= DOTS_HIDE_W) showDots = false;
+}
+
 function layoutChart() {
   const el = document.getElementById("chart");
   const rect = el.getBoundingClientRect();
   const w = el.clientWidth || rect.width || 420;
   const h = el.clientHeight || rect.height || 400;
-  const EXTRA_BELOW_DOTS = 0; // tiny interior cushion under the dot row
+  const EXTRA_BELOW_DOTS = 8;
 
+  // HYSTERESIS: decide once per layout
+  if (w >= DOTS_SHOW_W) showDots = true;
+  else if (w <= DOTS_HIDE_W) showDots = false;
 
   // base margins (without ticks/dots)
   const baseSmall = { top: 52, right: 10, bottom: 6,  left: 30 };
@@ -1081,36 +1086,19 @@ function layoutChart() {
   // -------------------------------------------------------------------
   // 🎯 THE CRITICAL FIX ZONE 🎯
   // -------------------------------------------------------------------
-  tickGap    = Math.max(3, Math.ceil(tickLabelH * 0.20));
-  dotBandH   = DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH*0.10));
+  tickGap  = Math.max(3, Math.ceil(tickLabelH * 0.20));
+  dotBandH = showDots ? (DOT_R * 2 + Math.max(6, Math.ceil(tickLabelH * 0.10))) : 0;
 
-  // 1. Calculate FINAL margin.bottom
-  const bottomGutter = (width < 520 ? 6 : 8);
-  margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + EXTRA_BELOW_DOTS;
+  const bottomGutter = (w < 520 ? 6 : 8);
+  margin.bottom = bottomGutter + tickLabelH + tickGap + dotBandH + (showDots ? EXTRA_BELOW_DOTS : 0);
 
-  const isMobile = width < 520;
-  margin.bottom = Math.max(
-    margin.bottom,
-    isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP
-  );
+  const isMobile = w < 520;
+  margin.bottom = Math.max(margin.bottom, isMobile ? BOTTOM_FLOOR_MOBILE : BOTTOM_FLOOR_DESKTOP);
 
-  // 2. Recalculate innerH using the FINAL margin.bottom
-  //    This value is now CORRECT and constrained by the available grid space.
-  innerH = height - margin.top  - margin.bottom;
-
-  // 3. Update the Y-scale range and the X-axis position to the new, constrained innerH
-  y.range([innerH, 0]);
-  xAxisG.attr("transform", `translate(0,${innerH})`).call(xAxis); 
-
-  // 4. Call ALL the drawing/redrawing functions so they use the new, correct innerH
-  //    (This is your existing redraw block)
-  // -------------------------------------------------------------------
-  
-  // draw
+  // ... recompute innerH, ranges, axis ...
   drawYearDots();
   rebuildStacks();
   highlightYear(years[idx]);
-  _secondPassScheduled = false;
 }
 
 // run a second, accurate layout once fonts are ready (iOS Safari fix)
@@ -1469,6 +1457,7 @@ window.addEventListener("resize", layoutChart, { passive: true });
   // renderYearFiltersUI();
   initYearFilterButtons();
   layoutChart();
+  requestAnimationFrame(layoutChart);
   setFrame(0);
 })();
 </script>
