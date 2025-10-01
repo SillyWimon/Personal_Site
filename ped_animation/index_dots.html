@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="robots" content="noindex, nofollow">
+<!-- <meta name="robots" content="noindex, nofollow"> -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
 
 <title>Pedestrian Fatalities — Time Animation</title>
 
@@ -15,8 +17,9 @@
     display: grid;
     grid-template-columns: 1.2fr 0.8fr;   /* map : chart */
     grid-template-rows: auto 1fr auto;
-    height: 100dvh;
-    height: 100vh;
+    height: 100vh;   /* fallback */
+    height: 100svh;  /* iOS 15–16 */
+    height: 100dvh;  /* modern browsers */
   }
   
   /* Right column wrapper with its own two-row grid */
@@ -184,33 +187,33 @@
     #year-filters { justify-content: flex-end; }/* keep Clear / Select All on one line */
   }
 
-  /* phones in landscape: go back to side-by-side columns */
+  /* phones in landscape: side-by-side */
   @media (max-width: 900px) and (orientation: landscape) {
     #app {
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto 1fr auto; /* header | content | footer */
+      grid-template-rows: auto 1fr auto;
     }
     #map { grid-column: 1; grid-row: 2; }
     #right-pane {
       grid-column: 2; grid-row: 2;
-      border-top: 0;                      /* from stacked mode */
-      border-left: 1px solid #eee;        /* desktop-style divider */
+      border-top: 0;
+      border-left: 1px solid #eee;
+      grid-template-rows: auto minmax(0,1fr) min-content; /* prevent chart collapse */
     }
   }
 
-
-
-
-  /* small screens: stack map over chart */
-  @media (max-width: 900px) {
+  /* phones in portrait: stack */
+  @media (max-width: 900px) and (orientation: portrait) {
     #app {
       grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr 1fr auto; /* header, map, chart, footer */
+      grid-template-rows: auto 1fr 1fr auto;
     }
     #map { grid-column: 1; grid-row: 2; }
     #right-pane {
       grid-column: 1; grid-row: 3;
-      border-left: 0; border-top: 1px solid #eee;
+      border-left: 0;
+      border-top: 1px solid #eee;
+      grid-template-rows: auto minmax(0,1fr) min-content;
     }
   }
 
@@ -307,6 +310,19 @@
       <li><b>SVI (tracts):</b> The Social Vulnerability Index is a measure developed by the Centers for Disease Control and Prevention (CDC) using census tract–level data. It combines factors such as income, household composition, minority status, language, housing, and transportation to highlight areas where residents may be more vulnerable to social and environmental stresses. </li>
       <li><b>Basemap:</b> © OpenStreetMap contributors.</li>
     </ul>
+
+    <h3>Why show SVI?</h3>
+    <p>
+      About <b>14%</b> of Bernalillo County residents live in census tracts with
+      <b>SVI ≥ 0.8</b>, yet across 2012–2023 roughly <b>49%</b> of pedestrian fatalities
+      occurred <b>within or immediately adjacent</b> to those tracts. The SVI layer is provided
+      to give context for disparities; it does not imply causation.
+    </p>
+    <p style="font-size:12px;opacity:.8">
+      Method: SVI from CDC; population field <code>E_TOTPOP</code>. “High SVI” = RPL_THEMES ≥ 0.8.
+      “Adjacent” = within a 100ft buffer of high-SVI tracts.
+    </p>
+
 
     <h3>Notes &amp; Attribution</h3>
     <p>
@@ -1060,6 +1076,23 @@ if (rightPane) ro.observe(rightPane);
 
 // (keep your window resize fallback too)
 window.addEventListener("resize", layoutChart, { passive: true });
+
+// Debounced resize/orientation handler
+let __rt;
+function reflowAll() {
+  if (__rt) cancelAnimationFrame(__rt);
+  __rt = requestAnimationFrame(() => {
+    try { map.invalidateSize(); } catch {}
+    layoutChart();
+  });
+}
+
+window.addEventListener('resize', reflowAll, { passive: true });
+window.addEventListener('orientationchange', () => {
+  // give iOS a beat to recalc the dynamic viewport height
+  setTimeout(reflowAll, 250);
+});
+
 
 
 
