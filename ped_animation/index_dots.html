@@ -26,7 +26,7 @@
     display: grid;
     grid-template-rows: auto 1fr min-content; /* tabs, chart, buttons */
     border-left: 1px solid #eee;
-    align-content: start;                     /* keeps rows from stretching */
+    align-content: stretch;                     /* keeps rows from stretching */
   }
 
   #year-filters {
@@ -56,16 +56,15 @@
   }
 
   /* Chart fills the rest of the right pane */
-  #chart {
+  /* #chart {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* Ensure it aligns at the top of its grid cell */
     align-self: stretch;
     justify-self: stretch;
     display: block;
     max-height: 100%;
-  }
+  } */
 
   /* may need to delete above CSS since I just pasted the below in - don't want too much duplicate #chart CSS */
 
