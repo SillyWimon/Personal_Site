@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pedestrian Deaths vs Homicide — Large Metros</title>
+<style>
+  :root { --pad: 24px; }
+  body { margin: var(--pad); font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  p.note { color:#555; margin: 0 0 16px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  #chart { width: 100%; height: 600px; }
+  .tooltip {
+    position: absolute; pointer-events: none; background:#fff; border:1px solid #e3e3e3;
+    padding:8px 10px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.08);
+    opacity:0; transition: opacity .12s;
+  }
+  .legend { display:flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; user-select: none; }
+  .legend-item { display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 6px; border-radius:8px; }
+  .legend-item.inactive { opacity:.35; filter: grayscale(0.6); }
+  .legend-swatch { width:14px; height:14px; border-radius:50%; }
+  .dot { opacity:.9; }
+  .dot:hover { stroke:#111; stroke-width:1px; }
+  .axis text { font-size: 12px; fill:#222; }
+  .axis path, .axis line { stroke: #aaa; }
+  .reg-line { stroke:#333; stroke-width:1.5; stroke-dasharray:4 4; }
+  .foot { color:#666; font-size: 12px; margin-top: 10px; }
+</style>
+<style>
+    .tabs { display:flex; gap:8px; margin:8px 0 10px; }
+    .tab { padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9; cursor:pointer; }
+    .tab.active { background:#fff; border-color:#bbb; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  </style>
+  
+</head>
+<body>
+<div class="wrap">
+  <h1>Pedestrian Death Rate vs Homicide Rate (Big Metros, 2019–2023)</h1>
+  <p class="note">Dot color = Region • Dot size = √Population • Hover for details. Rates are annualized per 100k.</p>
+  <div class="tabs" id="tabs">
+    <button data-x="hom" class="tab active">Homicide</button>
+    <button data-x="pre40" class="tab">Pre-1940s share</button>
+    <button data-x="y80s" class="tab">1980s share</button>
+    <button data-x="ec" class="tab">Economic Connectedness</button>
+  </div>
+    
+  <div id="chart"></div>
+  <div class="legend" id="legend"></div>
+  <div class="foot">Source: Fatalities from Fatality Analysis Reporting System (FARS), 2019–2023, aggregated by Core‐Based Statistical Area (CBSA). Homicide totals from the CDC WONDER Multiple Cause of Death database (2019–2023). Population and housing‐era shares from the American Community Survey 5-Year Estimates (2018–2022). Social capital (economic connectedness) from the Social Capital Atlas.</div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(async function(){
+  // Load the NEW csv (with built_pre40 & built_80s) & ECON CONNECTEDNESS
+
+  const data = await d3.csv("cbsa_scatter_big_enriched.csv", d => ({
+    title: d.CBSA_TITLE,
+    region: d.REGION,
+    pop: +d.POP,
+    ped: +d.ped_rate,
+    hom: +d.homicide_rate,
+    pre40: +d.built_pre40 || null,
+    y80s:  +d.built_80s    || null,
+    ec:    +d.econ_connectedness || null   // <— add this line
+  }));
+
+
+  const regions = ["Northeast","Midwest","South","West"];
+  const color = d3.scaleOrdinal().domain(regions).range(d3.schemeTableau10.slice(0,4));
+
+  const chartEl = document.getElementById("chart");
+  const W = chartEl.clientWidth, H = chartEl.clientHeight || 600;
+  const M = {t: 18, r: 28, b: 58, l: 68};
+  let innerW = W - M.l - M.r, innerH = H - M.t - M.b;
+
+  const svg = d3.select("#chart").append("svg").attr("width", W).attr("height", H);
+  const g = svg.append("g").attr("transform", `translate(${M.l},${M.t})`);
+
+  const x = d3.scaleLinear().range([0, innerW]).nice();
+  const y = d3.scaleLinear().range([innerH, 0]).nice();
+  const r = d3.scaleSqrt().range([3, 16]).domain(d3.extent(data, d => Math.sqrt(d.pop)));
+
+  const xAxisG = g.append("g").attr("class","axis").attr("transform", `translate(0,${innerH})`);
+  const yAxisG = g.append("g").attr("class","axis");
+  const xLabel = g.append("text").attr("x", innerW/2).attr("y", innerH + 44)
+    .attr("text-anchor","middle").style("font-weight",600);
+  g.append("text").attr("x", -innerH/2).attr("y", -50).attr("transform","rotate(-90)")
+    .attr("text-anchor","middle").style("font-weight",600)
+    .text("Pedestrian death rate per 100k (annualized)");
+
+  const ttp = d3.select("#tooltip");
+  const fmt1 = d3.format(".1f"), fmtPop = d3.format(",.0f"), fmtPct = d3.format(".0%");
+  const fmt2 = d3.format(".2f");
+
+  const activeRegions = new Set(regions); // if you have legend toggles, keep using this
+
+  const dotsG = g.append("g");
+  const lineG = g.append("g").attr("pointer-events","none");
+
+  // Tabs: make sure your HTML has data-x="hom", "pre40", "y80s"
+  let xVar = "hom";
+  const tabs = document.getElementById("tabs");
+  tabs.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.tab");
+    if (!btn) return;
+    xVar = btn.dataset.x;
+    [...tabs.querySelectorAll(".tab")].forEach(b => b.classList.toggle("active", b === btn));
+    update();
+  });
+
+  document.querySelectorAll("#tabs .tab").forEach(b =>
+    b.classList.toggle("active", b.dataset.x === "ec")
+  );
+
+
+  function setDomains() {
+    y.domain(d3.extent(data, d => d.ped)).nice();
+    const xVals = data.map(d =>
+      xVar === "hom"   ? d.hom  :
+      xVar === "pre40" ? d.pre40:
+      xVar === "y80s"  ? d.y80s :
+                        d.ec
+    );
+    x.domain(d3.extent(xVals)).nice();
+    const tickFmt =
+    xVar === "hom"                 ? fmt1 :
+    (xVar === "pre40" || xVar === "y80s") ? fmtPct :
+                                            fmt2;  // ec
+
+    xAxisG.call(d3.axisBottom(x).ticks(8).tickFormat(tickFmt));
+
+    xLabel.text(
+      xVar === "hom"   ? "Homicide rate per 100k (annualized)" :
+      xVar === "pre40" ? "% housing built pre-1940" :
+      xVar === "y80s"  ? "% housing built in the 1980s" :
+                        "Economic Connectedness (Social Capital Atlas)"
+    );
+  }
+
+  setDomains();
+  yAxisG.call(d3.axisLeft(y).ticks(8));
+
+  const xv = (d) =>
+    xVar === "hom"   ? d.hom  :
+    xVar === "pre40" ? d.pre40:
+    xVar === "y80s"  ? d.y80s :
+                      d.ec;
+
+
+  // Simple OLS for line
+  function ols(points){
+    const mx = d3.mean(points, p=>p[0]), my = d3.mean(points, p=>p[1]);
+    let num=0, den=0;
+    for (const [xi, yi] of points){ num += (xi-mx)*(yi-my); den += (xi-mx)*(xi-mx); }
+    const slope = num/den, intercept = my - slope*mx;
+    return {slope, intercept};
+  }
+
+  function update(){
+    setDomains();
+    const vis = data.filter(d => activeRegions.has(d.region));
+
+    // dots
+    const dots = dotsG.selectAll("circle").data(vis, d=>d.title);
+    dots.join(
+      enter => enter.append("circle")
+        .attr("class","dot")
+        .attr("cx", d => x(xv(d)))
+        .attr("cy", d => y(d.ped))
+        .attr("r", d => r(Math.sqrt(d.pop)))
+        .attr("fill", d => color(d.region))
+        .on("mousemove", (event,d) => {
+          const xLabelTxt =
+            xVar === "hom"   ? `Homicide: ${fmt1(d.hom)} / 100k` :
+            xVar === "pre40" ? `Pre-1940s housing: ${fmtPct(d.pre40)}` :
+            xVar === "y80s"  ? `1980s housing: ${fmtPct(d.y80s)}` :
+                              `Economic Connectedness: ${fmt2(d.ec)}`;
+          ttp.style("opacity",1).html(
+            `<strong>${d.title}</strong><br>
+             Region: ${d.region}<br>
+             ${xLabelTxt}<br>
+             Ped rate: ${fmt1(d.ped)} / 100k<br>
+             Pre-1940s: ${fmtPct(d.pre40)} | 1980s: ${fmtPct(d.y80s)}<br>
+             Pop: ${fmtPop(d.pop)}`
+          ).style("left",(event.pageX+10)+"px").style("top",(event.pageY-28)+"px");
+        })
+        .on("mouseleave", () => ttp.style("opacity",0)),
+      update => update.transition().duration(450)
+        .attr("cx", d => x(xv(d)))
+        .attr("cy", d => y(d.ped))
+        .attr("r", d => r(Math.sqrt(d.pop)))
+        .attr("fill", d => color(d.region)),
+      exit => exit.remove()
+    );
+
+    // regression line
+    // regression line (clipped to chart box)
+    const pts = vis.map(d => [xv(d), d.ped]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    if (pts.length >= 2){
+      const {slope, intercept} = ols(pts);
+
+      const [xd0, xd1] = x.domain();      // x domain bounds
+      const [yd0, yd1] = y.domain();      // y domain bounds (min, max)
+
+      const yAt = X => slope*X + intercept;
+      const xAt = Y => (Y - intercept) / slope;
+
+      // Candidate intersections with the plot rectangle
+      const candidates = [
+        [xd0, yAt(xd0)],                   // left edge
+        [xd1, yAt(xd1)],                   // right edge
+        [xAt(yd0), yd0],                   // bottom edge
+        [xAt(yd1), yd1],                   // top edge
+      ];
+
+      // Keep only the points that lie on the rectangle boundary
+      let inside = candidates.filter(([X,Y]) =>
+        Number.isFinite(X) && Number.isFinite(Y) &&
+        X >= xd0 && X <= xd1 && Y >= yd0 && Y <= yd1
+      );
+
+      // De-dupe and sort by x so we can take the segment endpoints
+      inside = inside.filter((p,i,a) =>
+        a.findIndex(q => Math.abs(q[0]-p[0]) < 1e-9 && Math.abs(q[1]-p[1]) < 1e-9) === i
+      ).sort((a,b) => a[0] - b[0]);
+
+      if (inside.length >= 2){
+        const p1 = inside[0], p2 = inside[inside.length - 1];
+        lineG.selectAll("line").data([1]).join("line")
+          .attr("class","reg-line")
+          .attr("x1", x(p1[0])).attr("y1", y(p1[1]))
+          .attr("x2", x(p2[0])).attr("y2", y(p2[1]));
+      } else {
+        lineG.selectAll("line").remove();
+      }
+    } else {
+      lineG.selectAll("line").remove();
+    }
+
+  }
+
+  update();
+
+  // If you have a legend with toggles that mutates activeRegions, just call update() at the end of that handler.
+
+  // Resize handler (optional)
+  window.addEventListener("resize", () => {
+    const w = chartEl.clientWidth, h = chartEl.clientHeight || 600;
+    svg.attr("width", w).attr("height", h);
+    innerW = w - M.l - M.r; innerH = h - M.t - M.b;
+    x.range([0, innerW]); y.range([innerH, 0]);
+    xAxisG.attr("transform", `translate(0,${innerH})`);
+    update();
+  });
+})();
+</script>
+
+    
+</body>
+</html>
