@@ -43,6 +43,7 @@
     <button data-x="pre40" class="tab">Pre-1940s share</button>
     <button data-x="y80s" class="tab">1980s share</button>
     <button data-x="ec" class="tab">Economic Connectedness</button>
+    <button data-x="pov" class="tab">Poverty</button>
   </div>
     
   <div id="chart"></div>
@@ -56,7 +57,7 @@
 (async function(){
   // Load the NEW csv (with built_pre40 & built_80s) & ECON CONNECTEDNESS
 
-  const data = await d3.csv("cbsa_scatter_big_enriched.csv", d => ({
+  const data = await d3.csv("cbsa_scatter_big_with_poverty.csv", d => ({
     title: d.CBSA_TITLE,
     region: d.REGION,
     pop: +d.POP,
@@ -64,8 +65,10 @@
     hom: +d.homicide_rate,
     pre40: +d.built_pre40 || null,
     y80s:  +d.built_80s    || null,
-    ec:    +d.econ_connectedness || null   // <— add this line
+    ec:    +d.econ_connectedness || null, // if present in this file
+    pov:   +d.pov || null                 // <— new
   }));
+
 
 
   const regions = ["Northeast","Midwest","South","West"];
@@ -111,34 +114,40 @@
     update();
   });
 
-  document.querySelectorAll("#tabs .tab").forEach(b =>
-    b.classList.toggle("active", b.dataset.x === "ec")
-  );
-
 
   function setDomains() {
-    y.domain(d3.extent(data, d => d.ped)).nice();
-    const xVals = data.map(d =>
-      xVar === "hom"   ? d.hom  :
-      xVar === "pre40" ? d.pre40:
-      xVar === "y80s"  ? d.y80s :
-                        d.ec
-    );
-    x.domain(d3.extent(xVals)).nice();
+    const yVals = data.map(d => +d.ped).filter(Number.isFinite);
+    const getX = d =>
+      xVar === "hom"   ? +d.hom  :
+      xVar === "pre40" ? +d.pre40:
+      xVar === "y80s"  ? +d.y80s :
+      xVar === "ec"    ? +d.ec   :
+                        +d.pov;
+
+    const xVals = data.map(getX).filter(Number.isFinite);
+
+    // Fallbacks if a column is missing or all NaN
+    const yDomain = yVals.length ? d3.extent(yVals) : [0, 1];
+    const xDomain = xVals.length ? d3.extent(xVals) : [0, 1];
+
+    y.domain(yDomain).nice();
+    x.domain(xDomain).nice();
+
     const tickFmt =
-    xVar === "hom"                 ? fmt1 :
-    (xVar === "pre40" || xVar === "y80s") ? fmtPct :
-                                            fmt2;  // ec
+      xVar === "hom"                            ? fmt1 :
+      (xVar === "pre40" || xVar === "y80s" || xVar === "pov") ? fmtPct :
+                                                                fmt2;
 
     xAxisG.call(d3.axisBottom(x).ticks(8).tickFormat(tickFmt));
-
     xLabel.text(
       xVar === "hom"   ? "Homicide rate per 100k (annualized)" :
       xVar === "pre40" ? "% housing built pre-1940" :
       xVar === "y80s"  ? "% housing built in the 1980s" :
-                        "Economic Connectedness (Social Capital Atlas)"
+      xVar === "ec"    ? "Economic Connectedness (Social Capital Atlas)" :
+                        "% of households in poverty"
     );
   }
+
 
   setDomains();
   yAxisG.call(d3.axisLeft(y).ticks(8));
@@ -147,7 +156,8 @@
     xVar === "hom"   ? d.hom  :
     xVar === "pre40" ? d.pre40:
     xVar === "y80s"  ? d.y80s :
-                      d.ec;
+    xVar === "ec"    ? d.ec   :
+                      d.pov;  // pov
 
 
   // Simple OLS for line
@@ -177,7 +187,8 @@
             xVar === "hom"   ? `Homicide: ${fmt1(d.hom)} / 100k` :
             xVar === "pre40" ? `Pre-1940s housing: ${fmtPct(d.pre40)}` :
             xVar === "y80s"  ? `1980s housing: ${fmtPct(d.y80s)}` :
-                              `Economic Connectedness: ${fmt2(d.ec)}`;
+            xVar === "ec"    ? `Economic Connectedness: ${fmt2(d.ec)}` :
+                              `Households in poverty: ${fmtPct(d.pov)}`;
           ttp.style("opacity",1).html(
             `<strong>${d.title}</strong><br>
              Region: ${d.region}<br>
