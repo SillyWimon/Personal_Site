@@ -20,11 +20,108 @@
             padding: 0;
         }
         #map {
-            height: 100vh;  /* full viewport height */
-            width: 100vw;   /* full viewport width */
+            height: 100vh;
+            width: 100vw;
         }
-
+    
+        /* Legend visual baseline */
+        .density-legend {
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-family: sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            min-width: 140px;
+            max-width: 200px;
+        }
+    
+        /* Time control baseline */
+        #time-ui {
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            max-width: 260px;
+        }
+    
+        #time-ui .time-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            gap: 0.5rem;
+        }
+    
+        #time-ui .play-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+    
+        #time-ui .time-label {
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 4rem;
+        }
+    
+        #time-ui .time-slider {
+            width: 200px;
+        }
+    
+        /* --------- Mobile scaling ---------
+            If viewport is narrow (e.g. phone), make everything
+            chunkier / finger-friendly.
+        */
+        @media (max-width: 600px) {
+    
+            .density-legend {
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 10px 12px;
+                border-radius: 8px;
+            }
+    
+            #time-ui {
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 1rem 1rem;
+                border-radius: 8px;
+                max-width: 80vw;
+            }
+    
+            #time-ui .play-btn {
+                font-size: 16px;
+                padding: 8px 12px;
+                border-radius: 6px;
+            }
+    
+            #time-ui .time-label {
+                font-size: 14px;
+                min-width: 5rem;
+            }
+    
+            #time-ui .time-slider {
+                width: 60vw;
+                height: 32px;        /* makes it easier to grab on touch */
+            }
+    
+            /* (Optional) make the whole UI sit a bit higher so it’s not under your thumb bar on iOS */
+            #time-ui {
+                bottom: 5rem !important;
+            }
+        }
     </style>
+        
 
 </head>
 
@@ -33,7 +130,7 @@
 </body>
 
 <script>
-    const map = L.map('map').setView([53.3465, -6.27], 14) 
+    const map = L.map('map');
 
     L.tileLayer(
           'https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=1WSNdwCIsFmRRwN8LbjF',
@@ -94,18 +191,51 @@
         }
 
         function snapshotStyle(props) {
-            // radius scaled by working_cap / capacity, same as before
-            const cap = props.working_cap ?? props.capacity ?? 20;
-            const r = Math.max(4, Math.min(10, cap / 4));
-
             return {
-                radius: r,
+                radius: liveRadius(props),  // <-- NEW
                 weight: 1,
                 color: '#222',                  // outline stroke
                 fillColor: colorForStation(props),
                 fillOpacity: 0.9
             };
         }
+
+        
+
+        // radius for THIS time slice, based on how many bikes are actually available
+        // function liveRadius(props) {
+        //     // working_cap = usable docks (after maintenance etc)
+        //     const cap = props.working_cap ?? props.capacity ?? 20;
+        //     const bikesNow = props.num_bikes_available ?? 0;
+
+        //     // fraction of bikes currently sitting there (0 to 1+ theoretically)
+        //     const frac = cap > 0 ? (bikesNow / cap) : 0;
+
+        //     // visual bounds
+        //     const minR = 4;   // never smaller than this
+        //     const maxR = 12;  // never bigger than this
+
+        //     // linear interpolate
+        //     const r = minR + frac * (maxR - minR);
+
+        //     // extra safety clamp in case weird data >cap
+        //     return Math.max(minR, Math.min(maxR, r));
+        // }
+
+       // Faster growing version according to how many bikes there are, not the fraction of how full it is
+        function liveRadius(props) {
+            const bikesNow = props.num_bikes_available ?? 0;
+
+            const minR = 4;
+            const maxR = 12;
+
+            // tweak divisor: smaller divisor = faster growth
+            const r = minR + bikesNow * 0.4;
+
+            return Math.max(minR, Math.min(maxR, r));
+        }
+
+
 
         // color scale for *daytime* (jobs / daytime pop per km²) -> cool blues
         function colorForDaytimeDensity(val) {
@@ -172,19 +302,27 @@
         // we'll create an empty legend control now and update its innerHTML later
         const legendControl = L.control({ position: 'bottomright' });
 
+        // legendControl.onAdd = function (map) {
+        //     this._div = L.DomUtil.create('div', 'density-legend');
+        //     this._div.style.background = 'rgba(0,0,0,0.6)';
+        //     this._div.style.color = '#fff';
+        //     this._div.style.padding = '8px 10px';
+        //     this._div.style.borderRadius = '6px';
+        //     this._div.style.fontFamily = 'sans-serif';
+        //     this._div.style.fontSize = '12px';
+        //     this._div.style.lineHeight = '1.4';
+        //     this._div.style.minWidth = '140px';
+        //     this.update(null); // start hidden
+        //     return this._div;
+        //};
+
         legendControl.onAdd = function (map) {
             this._div = L.DomUtil.create('div', 'density-legend');
-            this._div.style.background = 'rgba(0,0,0,0.6)';
-            this._div.style.color = '#fff';
-            this._div.style.padding = '8px 10px';
-            this._div.style.borderRadius = '6px';
-            this._div.style.fontFamily = 'sans-serif';
-            this._div.style.fontSize = '12px';
-            this._div.style.lineHeight = '1.4';
-            this._div.style.minWidth = '140px';
+            // we'll let CSS handle visuals now
             this.update(null); // start hidden
             return this._div;
         };
+
 
         legendControl.update = function (mode) {
             if (!mode) {
@@ -378,21 +516,17 @@
         console.log('Loaded stations:', stationsGeoJSON.features?.length ?? 0);
 
         // 2. Marker styling helpers
-        function stationRadius(props) {
-            const cap = props.capacity ?? 20;
-            // give bigger stations a slightly bigger dot
-            return Math.max(4, Math.min(10, cap / 4));
-        }
 
         function stationStyle(props) {
             return {
-                radius: stationRadius(props),
+                radius: liveRadius(props),        // use live size
                 weight: 1,
-                color: '#222',        // outline
-                fillColor: '#888', // green fill for now
+                color: '#222',
+                fillColor: colorForStation(props),// match the color logic too
                 fillOpacity: 0.4
             };
         }
+
 
 
         // 3. Create a Leaflet GeoJSON layer from the data
@@ -443,10 +577,15 @@
         stationsLayer.addTo(map);
 
         // 5. Fit map to all stations so you're centered on real data
+        // 5. Fit map to all stations so you're centered on real data
         const bounds = stationsLayer.getBounds();
-        if (bounds.isValid()) {
+        if (bounds && bounds.isValid && bounds.isValid()) {
             map.fitBounds(bounds.pad(0.1));
+        } else {
+            // fallback: center on Dublin-ish if something is weird
+            map.setView([53.3465, -6.27], 14);
         }
+
 
         })();
 
@@ -542,39 +681,58 @@
         // 5. --- build simple UI controls (slider + play/pause) ---
 
         // create a little control bar overlay
-        // We'll inject some HTML elements into the page dynamically.
+        // // We'll inject some HTML elements into the page dynamically.
+        // const uiDiv = document.createElement('div');
+        // uiDiv.id = 'time-ui';
+        // uiDiv.style.position = 'absolute';
+        // uiDiv.style.left = '1rem';
+        // uiDiv.style.bottom = '1rem';
+        // uiDiv.style.padding = '0.75rem 1rem';
+        // uiDiv.style.background = 'rgba(0,0,0,0.6)';
+        // uiDiv.style.color = '#fff';
+        // uiDiv.style.fontFamily = 'sans-serif';
+        // uiDiv.style.fontSize = '12px';
+        // uiDiv.style.borderRadius = '6px';
+        // uiDiv.style.lineHeight = '1.4';
+        // uiDiv.style.zIndex = 1000;
+        // uiDiv.innerHTML = `
+        //     <div style="margin-bottom:0.5rem;">
+        //         <button id="play-pause" style="
+        //             background:#fff;
+        //             color:#000;
+        //             border:none;
+        //             border-radius:4px;
+        //             padding:2px 6px;
+        //             cursor:pointer;
+        //             font-size:12px;
+        //             font-weight:600;
+        //         ">▶</button>
+        //         <span id="time-label" style="margin-left:0.5rem;">--:--</span>
+        //     </div>
+        //     <input id="time-slider" type="range"
+        //         min="0" max="${allTimes.length-1}" value="0"
+        //         style="width:200px;">
+        // `;
+        // document.body.appendChild(uiDiv);
+
         const uiDiv = document.createElement('div');
         uiDiv.id = 'time-ui';
+        uiDiv.innerHTML = `
+            <div class="time-row">
+                <button id="play-pause" class="play-btn">▶</button>
+                <span id="time-label" class="time-label">--:--</span>
+            </div>
+            <input id="time-slider" class="time-slider" type="range"
+                min="0" max="${allTimes.length-1}" value="0">
+        `;
+        document.body.appendChild(uiDiv);
+
+        // then apply only the absolute positioning in JS, because that's map-layout-specific
         uiDiv.style.position = 'absolute';
         uiDiv.style.left = '1rem';
         uiDiv.style.bottom = '1rem';
-        uiDiv.style.padding = '0.75rem 1rem';
-        uiDiv.style.background = 'rgba(0,0,0,0.6)';
-        uiDiv.style.color = '#fff';
-        uiDiv.style.fontFamily = 'sans-serif';
-        uiDiv.style.fontSize = '12px';
-        uiDiv.style.borderRadius = '6px';
-        uiDiv.style.lineHeight = '1.4';
         uiDiv.style.zIndex = 1000;
-        uiDiv.innerHTML = `
-            <div style="margin-bottom:0.5rem;">
-                <button id="play-pause" style="
-                    background:#fff;
-                    color:#000;
-                    border:none;
-                    border-radius:4px;
-                    padding:2px 6px;
-                    cursor:pointer;
-                    font-size:12px;
-                    font-weight:600;
-                ">▶</button>
-                <span id="time-label" style="margin-left:0.5rem;">--:--</span>
-            </div>
-            <input id="time-slider" type="range"
-                min="0" max="${allTimes.length-1}" value="0"
-                style="width:200px;">
-        `;
-        document.body.appendChild(uiDiv);
+
 
         const sliderEl = document.getElementById('time-slider');
         const playBtn  = document.getElementById('play-pause');
