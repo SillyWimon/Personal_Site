@@ -357,7 +357,7 @@
             //   - day_pop_km2  (or workers_km2 / whatever you calculated)
             //   - T11_T        (total daytime pop)
             // Update field names below if different.
-            const dayResp = await fetch('Dulbin_Job_Density_2016.geojson');
+            const dayResp = await fetch('DublinCity_Job_Density_2016.geojson');
             if (!dayResp.ok) {
                 console.error('Failed to load daytime (jobs) geojson:', dayResp.status, dayResp.statusText);
             } else {
@@ -396,7 +396,7 @@
             // This expects residential_density.geojson with:
             //   - res_pop_total
             //   - res_pop_km2
-            const resResp = await fetch('residential_density.geojson');
+            const resResp = await fetch('residential_density_DubCity.geojson');
             if (!resResp.ok) {
                 console.error('Failed to load residential geojson:', resResp.status, resResp.statusText);
             } else {
@@ -520,7 +520,7 @@
         function stationStyle(props) {
             return {
                 radius: liveRadius(props),        // use live size
-                weight: 1,
+                weight: 0,
                 color: '#222',
                 fillColor: colorForStation(props),// match the color logic too
                 fillOpacity: 0.4
