@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Dublin Bikes live map (draft)</title>
 
     <meta name="robots" content="noindex, nofollow" />
@@ -82,6 +83,31 @@
             If viewport is narrow (e.g. phone), make everything
             chunkier / finger-friendly.
         */
+
+        /* Ensure Leaflet controls/legend sit above the map on iOS */
+        .leaflet-control,
+        .density-legend { z-index: 1300; }
+
+        /* Bigger, finger-friendly controls by default */
+        #time-ui .play-btn {
+        min-width: 44px;
+        min-height: 44px;
+        }
+
+        /* iOS range slider thumb: larger & easier to grab */
+        input[type="range"] {
+        -webkit-appearance: none;
+        height: 32px;            /* taller track for touch */
+        }
+        input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        }
+
+        /* Keep your existing @media … rules; now they will actually apply on iPhone. */
+
 
         /* When legend is visible, keep time UI from stretching too far right on mid-width screens */
         @media (max-width: 1100px) and (min-width: 601px) {
@@ -344,29 +370,63 @@
             `;
         }
 
-        // we'll create an empty legend control now and update its innerHTML later
+        // ONE legend control for the whole app
         const legendControl = L.control({ position: 'bottomright' });
-
-        legendControl.onAdd = function (map) {
-            this._div = L.DomUtil.create('div', 'density-legend');
-            // we'll let CSS handle visuals now
-            this.update(null); // start hidden
-            return this._div;
+        legendControl.onAdd = function () {
+        this._div = L.DomUtil.create('div', 'density-legend');
+        this.update(null);
+        return this._div;
         };
-
-
         legendControl.update = function (mode) {
-            if (!mode) {
-                // hide legend if no contextual layer is active
-                this._div.style.display = 'none';
-                this._div.innerHTML = '';
-            } else {
-                this._div.style.display = 'block';
-                this._div.innerHTML = getLegendHTML(mode);
-            }
+        if (!mode) {
+            this._div.style.display = 'none';
+            this._div.innerHTML = '';
+        } else {
+            this._div.style.display = 'block';
+            this._div.innerHTML = getLegendHTML(mode);
+        }
         };
-
         legendControl.addTo(map);
+
+        // Responsive position (top-right on phones so it avoids iOS bottom bars)
+        function placeLegendResponsively() {
+        const isNarrow = window.matchMedia('(max-width: 600px)').matches;
+        legendControl.setPosition(isNarrow ? 'topright' : 'bottomright');
+        }
+        map.whenReady(placeLegendResponsively);
+        window.addEventListener('resize', placeLegendResponsively);
+
+        // Optional: add a body class when a density layer is on, so your CSS can adjust time UI width
+        function setLegendOn(isOn) {
+        document.body.classList.toggle('legend-on', !!isOn);
+        }
+
+
+
+        //Think I can delete the below now
+        // we'll create an empty legend control now and update its innerHTML later
+        // const legendControl = L.control({ position: 'bottomright' });
+
+        // legendControl.onAdd = function (map) {
+        //     this._div = L.DomUtil.create('div', 'density-legend');
+        //     // we'll let CSS handle visuals now
+        //     this.update(null); // start hidden
+        //     return this._div;
+        // };
+
+
+        // legendControl.update = function (mode) {
+        //     if (!mode) {
+        //         // hide legend if no contextual layer is active
+        //         this._div.style.display = 'none';
+        //         this._div.innerHTML = '';
+        //     } else {
+        //         this._div.style.display = 'block';
+        //         this._div.innerHTML = getLegendHTML(mode);
+        //     }
+        // };
+
+        // legendControl.addTo(map);
 
 
 
@@ -530,14 +590,17 @@
         map.on('baselayerchange', (e) => {
             if (e.name === 'Residential density') {
                 legendControl.update('residential');
+                setLegendOn(true);
             } else if (e.name === 'Daytime density') {
                 legendControl.update('daytime');
+                setLegendOn(true);
             } else {
                 legendControl.update(null);
+                setLegendOn(false);
             }
-            // keep the position responsive after a toggle
             placeLegendResponsively();
         });
+
 
 
 
@@ -675,11 +738,13 @@
                 "features": frameFeatures
             };
 
-            function placeLegendResponsively() {
-                legendControl.setPosition('topright'); // always top-right
-            }
-            map.whenReady(placeLegendResponsively);
-            window.addEventListener('resize', placeLegendResponsively);
+            
+            // Think I can delete this responsive legend helper
+            // function placeLegendResponsively() {
+            //     legendControl.setPosition('topright'); // always top-right
+            // }
+            // map.whenReady(placeLegendResponsively);
+            // window.addEventListener('resize', placeLegendResponsively);
 
             // if there's an old layer on the map, remove it first
             if (snapshotLayer) {
@@ -805,23 +870,25 @@
         // track which legend is showing right now
         let currentLegendMode = null; // 'daytime' | 'residential' | null
 
-        const legendControl = L.control({ position: 'bottomright' });
-        legendControl.onAdd = function () {
-        this._div = L.DomUtil.create('div', 'density-legend');
-        this.update(null);
-        return this._div;
-        };
-        legendControl.update = function (mode) {
-        currentLegendMode = mode; // keep state in sync
-        if (!mode) {
-            this._div.style.display = 'none';
-            this._div.innerHTML = '';
-        } else {
-            this._div.style.display = 'block';
-            this._div.innerHTML = getLegendHTML(mode);
-        }
-        };
-        legendControl.addTo(map);
+        // I think I delete all of the below legend control stuff
+        
+        // const legendControl = L.control({ position: 'bottomright' });
+        // legendControl.onAdd = function () {
+        // this._div = L.DomUtil.create('div', 'density-legend');
+        // this.update(null);
+        // return this._div;
+        // };
+        // legendControl.update = function (mode) {
+        // currentLegendMode = mode; // keep state in sync
+        // if (!mode) {
+        //     this._div.style.display = 'none';
+        //     this._div.innerHTML = '';
+        // } else {
+        //     this._div.style.display = 'block';
+        //     this._div.innerHTML = getLegendHTML(mode);
+        // }
+        // };
+        // legendControl.addTo(map);
 
         // define ONCE, not inside drawFrame
         // function placeLegendResponsively() {
