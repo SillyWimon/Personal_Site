@@ -89,10 +89,10 @@
         .density-legend { z-index: 1300; }
 
         /* Bigger, finger-friendly controls by default */
-        #time-ui .play-btn {
+        /* #time-ui .play-btn {
         min-width: 44px;
         min-height: 44px;
-        }
+        } */
 
         /* iOS range slider thumb: larger & easier to grab */
         input[type="range"] {
@@ -107,6 +107,36 @@
         }
 
         /* Keep your existing @media … rules; now they will actually apply on iPhone. */
+        /* --- Desktop / laptop (bigger than 900px) --- */
+        @media (min-width: 901px){
+        #time-ui {
+            padding: 0.5rem 0.75rem;
+            max-width: 520px;           /* looks balanced next to map */
+        }
+        #time-ui .time-row { gap: 0.75rem; }
+        #time-ui .play-btn {
+            font-size: 14px;
+            padding: 8px 10px;
+            min-width: auto;            /* override mobile 44px box */
+            min-height: auto;
+            border-radius: 6px;
+        }
+        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
+        #time-ui .time-slider { width: 460px; height: 16px; }
+        }
+
+        /* --- Phone / narrow screens (≤600px) --- */
+        @media (max-width: 600px){
+        #time-ui { max-width: 80vw; padding: 1rem 1rem; border-radius: 8px; }
+        #time-ui .play-btn {
+            font-size: 16px;
+            padding: 8px 12px;
+            min-width: 44px;            /* touch target */
+            min-height: 44px;
+        }
+        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
+        #time-ui .time-slider { width: 60vw; height: 32px; }
+        }
 
 
         /* When legend is visible, keep time UI from stretching too far right on mid-width screens */
@@ -213,6 +243,7 @@
         map.getPane('choropleth-pane').style.pointerEvents = 'none'; // don't block tooltips on bikes
 
         // pointerEvents 'none' means polygons won't block mouseover on the bike dots
+
 
 
 
@@ -731,68 +762,53 @@
         // helper to (re)draw one frame on the map
         function drawFrame(time_iso) {
             const frameFeatures = framesByTime[time_iso] || [];
+            const snapshotFC = { type: "FeatureCollection", features: frameFeatures };
 
-            // wrap in FeatureCollection for Leaflet
-            const snapshotFC = {
-                "type": "FeatureCollection",
-                "features": frameFeatures
-            };
-
-            
-            // Think I can delete this responsive legend helper
-            // function placeLegendResponsively() {
-            //     legendControl.setPosition('topright'); // always top-right
-            // }
-            // map.whenReady(placeLegendResponsively);
-            // window.addEventListener('resize', placeLegendResponsively);
-
-            // if there's an old layer on the map, remove it first
+            // 1) Turn last frame into a faint blue trail instead of deleting it
             if (snapshotLayer) {
-                map.removeLayer(snapshotLayer);
+                snapshotLayer.eachLayer(m => {
+                // soft blue breadcrumb style
+                m.setStyle({
+                    color: '#3b82f6',        // stroke
+                    fillColor: '#3b82f6',    // fill
+                    fillOpacity: 0.18,
+                    weight: 0,
+                    radius: 3                // small dots so the current frame stands out
+                });
+                });
+                trailGroup.addLayer(snapshotLayer);
+                trailLayers.push(snapshotLayer);
+                if (trailLayers.length > TRAIL_FRAMES) {
+                const old = trailLayers.shift();
+                trailGroup.removeLayer(old);
+                }
             }
 
+            // 2) Draw the new "current" snapshot on top
             snapshotLayer = L.geoJSON(snapshotFC, {
-                pointToLayer: function (feature, latlng) {
-                    return L.circleMarker(latlng, snapshotStyle(feature.properties));
-                },
+                pointToLayer: (feature, latlng) => L.circleMarker(latlng, snapshotStyle(feature.properties)),
                 onEachFeature: function (feature, layer) {
-                    const p = feature.properties;
-                    const occPct = (p.pct_occ_working != null)
-                        ? (p.pct_occ_working * 100).toFixed(0) + "%"
-                        : "—";
-
-                    let statusText = "";
-                    if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) {
-                        statusText = "No docks free";
-                    } else if (p.pct_occ_working <= 0.01) {
-                        statusText = "No bikes available";
-                    } else {
-                        statusText = "Bikes available";
-                    }
-
-                    layer.bindTooltip(
-                        `<strong>${p.name}</strong><br/>
-                        ${p.time_iso}<br/>
-                        ${statusText}<br/>
-                        Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
-                        Load: ${occPct}`,
-                        { direction: 'top' }
-                    );
+                const p = feature.properties;
+                const occPct = (p.pct_occ_working != null) ? (p.pct_occ_working * 100).toFixed(0) + "%" : "—";
+                let statusText = "";
+                if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) statusText = "No docks free";
+                else if (p.pct_occ_working <= 0.01) statusText = "No bikes available";
+                else statusText = "Bikes available";
+                layer.bindTooltip(
+                    `<strong>${p.name}</strong><br/>
+                    ${p.time_iso}<br/>
+                    ${statusText}<br/>
+                    Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
+                    Load: ${occPct}`,
+                    { direction: 'top' }
+                );
                 }
             }).addTo(map);
 
-            // OPTIONAL: If you want to refit every frame (can be jumpy, so maybe skip after debugging)
-            // const b = snapshotLayer.getBounds();
-            // if (b.isValid()) {
-            //     map.fitBounds(b.pad(0.1));
-            // }
-
-            // Also update UI label so we can see what frame we're on
             const labelEl = document.getElementById('time-label');
-            if (labelEl) {
-                labelEl.innerHTML = formatTimeLabel(time_iso);
-            }
+            if (labelEl) labelEl.innerHTML = formatTimeLabel(time_iso);
         }
+
         
 
         // 5. --- build simple UI controls (slider + play/pause) ---
@@ -951,6 +967,11 @@
         if (e.key === 'ArrowRight') { nextFrame(); }
         if (e.key === 'ArrowLeft')  { prevFrame(); }
         });
+
+        // Breadcrumb trail holder (added BEFORE snapshots so snapshots draw on top)
+        const trailGroup = L.layerGroup().addTo(map);
+        const TRAIL_FRAMES = 6;     // how many past frames to keep
+        const trailLayers = [];     // ring buffer
 
         // 8. draw the very first frame to initialize map
         drawFrame(allTimes[0]);
