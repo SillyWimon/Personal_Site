@@ -1,0 +1,984 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Dublin Bikes live map (draft)</title>
+
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""/>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+    
+        /* Legend visual baseline */
+        .density-legend {
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-family: sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            min-width: 140px;
+            max-width: 200px;
+        }
+    
+        /* Time control baseline */
+        #time-ui {
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            max-width: 460px;
+        }
+    
+        #time-ui .time-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            gap: 0.5rem;
+        }
+    
+        #time-ui .play-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+    
+        #time-ui .time-label {
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 4rem;
+        }
+    
+        #time-ui .time-slider {
+            width: 400px;
+        }
+    
+        /* --------- Mobile scaling ---------
+            If viewport is narrow (e.g. phone), make everything
+            chunkier / finger-friendly.
+        */
+
+        /* Ensure Leaflet controls/legend sit above the map on iOS */
+        .leaflet-control,
+        .density-legend { z-index: 1300; }
+
+        /* Bigger, finger-friendly controls by default */
+        /* #time-ui .play-btn {
+        min-width: 44px;
+        min-height: 44px;
+        } */
+
+        /* iOS range slider thumb: larger & easier to grab */
+        input[type="range"] {
+        -webkit-appearance: none;
+        height: 32px;            /* taller track for touch */
+        }
+        input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        }
+
+        /* Keep your existing @media … rules; now they will actually apply on iPhone. */
+        /* --- Desktop / laptop (bigger than 900px) --- */
+        @media (min-width: 901px){
+        #time-ui {
+            padding: 0.5rem 0.75rem;
+            max-width: 520px;           /* looks balanced next to map */
+        }
+        #time-ui .time-row { gap: 0.75rem; }
+        #time-ui .play-btn {
+            font-size: 14px;
+            padding: 8px 10px;
+            min-width: auto;            /* override mobile 44px box */
+            min-height: auto;
+            border-radius: 6px;
+        }
+        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
+        #time-ui .time-slider { width: 460px; height: 16px; }
+        }
+
+        /* --- Phone / narrow screens (≤600px) --- */
+        @media (max-width: 600px){
+        #time-ui { max-width: 80vw; padding: 1rem 1rem; border-radius: 8px; }
+        #time-ui .play-btn {
+            font-size: 16px;
+            padding: 8px 12px;
+            min-width: 44px;            /* touch target */
+            min-height: 44px;
+        }
+        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
+        #time-ui .time-slider { width: 60vw; height: 32px; }
+        }
+
+
+        /* When legend is visible, keep time UI from stretching too far right on mid-width screens */
+        @media (max-width: 1100px) and (min-width: 601px) {
+        body.legend-on #time-ui {
+            /* leave ~220–260px for the legend + margins */
+            max-width: calc(100vw - 18rem);
+        }
+        body.legend-on #time-ui .time-slider {
+            width: calc(100vw - 22rem); /* a bit smaller than container */
+        }
+        }
+
+        /* Extra guard at tablet-ish sizes */
+        @media (max-width: 900px) and (min-width: 601px) {
+        body.legend-on #time-ui {
+            max-width: 60vw;
+        }
+        body.legend-on #time-ui .time-slider {
+            width: 45vw;
+        }
+        }
+
+
+        #time-ui .time-label { display: inline-block; }
+        @media (max-width:600px){
+        #time-ui .time-label { display:block; margin-top:2px; }
+        }
+
+        @media (max-width: 600px){
+            #time-ui { max-width: 92vw; }
+            #time-ui .time-slider { width: 72vw; }
+        }
+
+
+        @media (max-width: 600px) {
+    
+            .density-legend {
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 10px 12px;
+                border-radius: 8px;
+            }
+    
+            #time-ui {
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 1rem 1rem;
+                border-radius: 8px;
+                max-width: 80vw;
+            }
+    
+            #time-ui .play-btn {
+                font-size: 16px;
+                padding: 8px 12px;
+                border-radius: 6px;
+            }
+    
+            #time-ui .time-label {
+                font-size: 14px;
+                min-width: 5rem;
+            }
+    
+            #time-ui .time-slider {
+                width: 60vw;
+                height: 32px;        /* makes it easier to grab on touch */
+            }
+    
+            /* (Optional) make the whole UI sit a bit higher so it’s not under your thumb bar on iOS */
+            #time-ui {
+                bottom: 3rem !important;
+            }
+        }
+    </style>
+        
+
+</head>
+
+<body>
+    <div id="map"></div>
+    <div id="time-ui" role="group" aria-label="Time controls"></div>
+    <!-- <div id="legend" class="density-legend" hidden></div> -->
+</body>
+
+<script>
+    const map = L.map('map');
+
+    L.tileLayer(
+          'https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=1WSNdwCIsFmRRwN8LbjF',
+          {
+            tileSize: 512,
+            zoomOffset: -1,
+            maxZoom: 20,
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+              'contributors &copy; <a href="https://www.maptiler.com/">MapTiler</a>'
+          }
+        ).addTo(map)
+
+            // make a custom pane for the jobs polygons so they sit under the bike dots
+        // pane for choropleth polygons (both daytime + residential)
+        map.createPane('choropleth-pane');
+        map.getPane('choropleth-pane').style.zIndex = 350;  // under bike dots
+        map.getPane('choropleth-pane').style.pointerEvents = 'none'; // don't block tooltips on bikes
+
+        // pointerEvents 'none' means polygons won't block mouseover on the bike dots
+
+
+
+
+        // Helper
+
+            // Helper to decide the fill color for a station at a snapshot in time.
+        // props = feature.properties
+        function colorForStation(props) {
+            const occ = props.pct_occ_working; // 0 to 1
+            const isFull = (props.is_full_working === true) || (occ >= 0.99);
+            const isEmpty = (occ === 0 || occ <= 0.01);
+
+            // Special case: station is "functionally full" of bikes (no docks left)
+            if (isFull) {
+                // distinct color, not on the red→green ramp
+                // blue reads as 'jammed / no return slots'
+                return '#4e79a7';
+            }
+
+            // Empty or basically empty of bikes
+            if (isEmpty) {
+                // red = "bad, nothing to take"
+                return '#d73027';
+            }
+
+            // Low stock (0% - 30%)
+            if (occ < 0.3) {
+                return '#fc8d59'; // orange-ish
+            }
+
+            // Medium (30% - 70%)
+            if (occ < 0.7) {
+                return '#fee08b'; // yellow-ish
+            }
+
+            // High (70% - ~100%, but not flagged as 'full')
+            return '#1a9850'; // green
+        }
+
+        function snapshotStyle(props) {
+            return {
+                radius: liveRadius(props),  // <-- NEW
+                weight: 1,
+                color: '#222',                  // outline stroke
+                fillColor: colorForStation(props),
+                fillOpacity: 0.9
+            };
+        }
+
+        
+
+        // radius for THIS time slice, based on how many bikes are actually available
+        // function liveRadius(props) {
+        //     // working_cap = usable docks (after maintenance etc)
+        //     const cap = props.working_cap ?? props.capacity ?? 20;
+        //     const bikesNow = props.num_bikes_available ?? 0;
+
+        //     // fraction of bikes currently sitting there (0 to 1+ theoretically)
+        //     const frac = cap > 0 ? (bikesNow / cap) : 0;
+
+        //     // visual bounds
+        //     const minR = 4;   // never smaller than this
+        //     const maxR = 12;  // never bigger than this
+
+        //     // linear interpolate
+        //     const r = minR + frac * (maxR - minR);
+
+        //     // extra safety clamp in case weird data >cap
+        //     return Math.max(minR, Math.min(maxR, r));
+        // }
+
+       // Faster growing version according to how many bikes there are, not the fraction of how full it is
+        function liveRadius(props) {
+            const bikesNow = props.num_bikes_available ?? 0;
+
+            const minR = 4;
+            const maxR = 12;
+
+            // tweak divisor: smaller divisor = faster growth
+            const r = minR + bikesNow * 0.4;
+
+            return Math.max(minR, Math.min(maxR, r));
+        }
+        
+
+
+
+        // color scale for *daytime* (jobs / daytime pop per km²) -> cool blues
+        function colorForDaytimeDensity(val) {
+            if (val == null || isNaN(val)) return 'rgba(0,0,0,0)';
+
+            // tune breakpoints if needed based on your range
+            if (val >= 200000) return '#08306b';
+            if (val >= 150000)  return '#08519c';
+            if (val >= 100000)  return '#2171b5';
+            if (val >= 50000)  return '#4292c6';
+            if (val >= 25000)  return '#6baed6';
+            if (val >= 10000)   return '#9ecae1';
+            return '#c6dbef';
+        }
+
+        // color scale for *residential* (residents per km²) -> warmer / purple-ish
+        function colorForResidentialDensity(val) {
+            if (val == null || isNaN(val)) return 'rgba(0,0,0,0)';
+
+            // also tweak breakpoints once you inspect values
+            if (val >= 80000) return '#4a1486';
+            if (val >= 60000)  return '#6a1b9a';
+            if (val >= 40000)  return '#8e24aa';
+            if (val >= 20000)  return '#ab47bc';
+            if (val >= 10000)  return '#ce93d8';
+            if (val >= 5000)   return '#e1bee7';
+            return '#f3e5f5';
+        }
+
+        function formatTimeLabel(iso) {
+            // iso like "2025-08-12T00:00:00"
+            const [datePart, timePartRaw] = iso.split('T');
+            const timePart = (timePartRaw || '').slice(0,5); // "HH:MM"
+            return `Date: ${datePart}<br>${timePart}`;
+        }
+
+
+        // returns HTML string for legend boxes for a given ramp type
+        function getLegendHTML(mode) {
+            // mode is "residential" or "daytime"
+
+            if (mode === "residential") {
+                return `
+                    <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+                        <div style="font-weight:bold; margin-bottom:4px;">Residential density<br/>(residents per km²)</div>
+                        <div><span style="background:#4a1486; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>80,000+</div>
+                        <div><span style="background:#6a1b9a; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>60,000 – 89,999</div>
+                        <div><span style="background:#8e24aa; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>40,000 – 59,999</div>
+                        <div><span style="background:#ab47bc; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>20,000 – 39,999</div>
+                        <div><span style="background:#ce93d8; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>10,000 – 19,999</div>
+                        <div><span style="background:#e1bee7; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>5,000 – 9,999</div>
+                        <div><span style="background:#f3e5f5; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>&lt; 5000</div>
+                    </div>
+                `;
+            }
+
+            // default daytime legend
+            return `
+                <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+                    <div style="font-weight:bold; margin-bottom:4px;">Daytime density<br/>(people present per km²)</div>
+                    <div><span style="background:#08306b; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>200,000+</div>
+                    <div><span style="background:#08519c; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>150,000 – 199,999</div>
+                    <div><span style="background:#2171b5; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>100,000 – 149,999</div>
+                    <div><span style="background:#4292c6; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>50,000 – 99,999</div>
+                    <div><span style="background:#6baed6; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>25,000 – 49,999</div>
+                    <div><span style="background:#9ecae1; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>10,000 – 24,999</div>
+                    <div><span style="background:#c6dbef; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>&lt; 10,000</div>
+                </div>
+            `;
+        }
+
+        // ONE legend control for the whole app
+        const legendControl = L.control({ position: 'bottomright' });
+        legendControl.onAdd = function () {
+        this._div = L.DomUtil.create('div', 'density-legend');
+        this.update(null);
+        return this._div;
+        };
+        legendControl.update = function (mode) {
+        if (!mode) {
+            this._div.style.display = 'none';
+            this._div.innerHTML = '';
+        } else {
+            this._div.style.display = 'block';
+            this._div.innerHTML = getLegendHTML(mode);
+        }
+        };
+        legendControl.addTo(map);
+
+        // Responsive position (top-right on phones so it avoids iOS bottom bars)
+        function placeLegendResponsively() {
+        const isNarrow = window.matchMedia('(max-width: 600px)').matches;
+        legendControl.setPosition(isNarrow ? 'topright' : 'bottomright');
+        }
+        map.whenReady(placeLegendResponsively);
+        window.addEventListener('resize', placeLegendResponsively);
+
+        // Optional: add a body class when a density layer is on, so your CSS can adjust time UI width
+        function setLegendOn(isOn) {
+        document.body.classList.toggle('legend-on', !!isOn);
+        }
+
+
+
+        //Think I can delete the below now
+        // we'll create an empty legend control now and update its innerHTML later
+        // const legendControl = L.control({ position: 'bottomright' });
+
+        // legendControl.onAdd = function (map) {
+        //     this._div = L.DomUtil.create('div', 'density-legend');
+        //     // we'll let CSS handle visuals now
+        //     this.update(null); // start hidden
+        //     return this._div;
+        // };
+
+
+        // legendControl.update = function (mode) {
+        //     if (!mode) {
+        //         // hide legend if no contextual layer is active
+        //         this._div.style.display = 'none';
+        //         this._div.innerHTML = '';
+        //     } else {
+        //         this._div.style.display = 'block';
+        //         this._div.innerHTML = getLegendHTML(mode);
+        //     }
+        // };
+
+        // legendControl.addTo(map);
+
+
+
+        
+        // async block #3: load jobs polygons and add as a styled choropleth layer
+        // async block #1: load jobs polygons and add as a styled choropleth layer
+        // We'll store the two polygon layers so we can toggle them later.
+        let daytimeLayer = null;
+        let residentialLayer = null;
+
+        // We'll also store the control so we only create it once.
+        let overlayControl = null;
+
+        // Async IIFE to load BOTH polygon datasets
+        (async function () {
+
+            // ---- A) Load daytime / jobs density
+            // Assumes your file Dublin_Job_Density_2016.geojson has fields like:
+            //   - day_pop_km2  (or workers_km2 / whatever you calculated)
+            //   - T11_T        (total daytime pop)
+            // Update field names below if different.
+            const dayResp = await fetch('DublinCity_Job_Density_2016.geojson');
+            if (!dayResp.ok) {
+                console.error('Failed to load daytime (jobs) geojson:', dayResp.status, dayResp.statusText);
+            } else {
+                const dayGeo = await dayResp.json();
+                console.log('Loaded daytime polygons:', dayGeo.features?.length ?? 0);
+
+                daytimeLayer = L.geoJSON(dayGeo, {
+                    pane: 'choropleth-pane',
+                    style: function (feature) {
+                        const p = feature.properties;
+                        // pick whichever density you exported: e.g. p.day_pop_km2
+                        const densityVal = p.day_pop_km2 ?? p.workers_km2 ?? p.T11_T;
+                        return {
+                            color: '#000000',
+                            weight: 0.4,
+                            fillColor: colorForDaytimeDensity(densityVal),
+                            fillOpacity: 0.4
+                        };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        const p = feature.properties;
+                        const densityVal = p.day_pop_km2 ?? p.workers_km2;
+                        const peopleHere = p.T11_T ?? p.T11_C1;
+
+                        layer.bindPopup(
+                            `<strong>Daytime presence</strong><br/>
+                            ${peopleHere?.toLocaleString?.() ?? peopleHere} people total<br/>
+                            ${Math.round(densityVal || 0).toLocaleString()} / km²`
+                        );
+                    }
+
+                });
+            }
+
+            // ---- B) Load residential (nighttime) density
+            // This expects residential_density.geojson with:
+            //   - res_pop_total
+            //   - res_pop_km2
+            const resResp = await fetch('residential_density_DubCity.geojson');
+            if (!resResp.ok) {
+                console.error('Failed to load residential geojson:', resResp.status, resResp.statusText);
+            } else {
+                const resGeo = await resResp.json();
+                console.log('Loaded residential polygons:', resGeo.features?.length ?? 0);
+
+                residentialLayer = L.geoJSON(resGeo, {
+                    pane: 'choropleth-pane',
+                    style: function (feature) {
+                        const p = feature.properties;
+                        const densityVal = p.res_pop_km2;
+                        return {
+                            color: '#000000',
+                            weight: 0.4,
+                            fillColor: colorForResidentialDensity(densityVal),
+                            fillOpacity: 0.4
+                        };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        const p = feature.properties;
+                        layer.bindPopup(
+                            `<strong>Residential population</strong><br/>
+                            ${p.res_pop_total?.toLocaleString?.() ?? p.res_pop_total} residents<br/>
+                            ${Math.round(p.res_pop_km2 || 0).toLocaleString()} / km²`
+                        );
+                    }
+
+                });
+            }
+
+            // ---- C) Add both to the map + layer control
+
+            // DO NOT add residentialLayer or daytimeLayer to the map here.
+            // We want a "clean" bike-first view on load.
+
+            // // Build overlay map entries for the layer control
+            // const overlayMaps = {};
+            // if (residentialLayer) {
+            //     overlayMaps["Residential density"] = residentialLayer;
+            // }
+            // if (daytimeLayer) {
+            //     overlayMaps["Daytime density"] = daytimeLayer;
+            // }
+
+            // // Create the control (top right by default)
+            // if (!overlayControl) {
+            //     overlayControl = L.control.layers(
+            //         {},            // no base layer alternatives
+            //         overlayMaps,   // overlays you can toggle
+            //         { collapsed: false }
+            //     ).addTo(map);
+            // }
+
+            // ---- C) Build layer control with radio-style exclusivity
+
+            // We will NOT .addTo(map) either layer yet.
+            // We'll let the user pick one via radio buttons.
+
+            // a dummy layer that shows nothing but satisfies Leaflet's radio logic
+            const noneLayer = L.layerGroup();
+
+            // IMPORTANT: add noneLayer to the map now
+            // This makes Leaflet consider "None" the active base layer
+            noneLayer.addTo(map);
+
+            // Build layer control with radio-style exclusivity
+            const baseLayers = {
+                "None": noneLayer
+            };
+
+            if (residentialLayer) {
+                baseLayers["Residential density"] = residentialLayer;
+            }
+            if (daytimeLayer) {
+                baseLayers["Daytime density"] = daytimeLayer;
+            }
+
+            if (!overlayControl) {
+                overlayControl = L.control.layers(
+                    baseLayers,
+                    {}, // no overlays
+                    { collapsed: false }
+                ).addTo(map);
+            }
+
+
+
+        //     map.on('baselayerchange', function (e) {
+        //     // e.name is the label in the control ("Residential density" or "Daytime density")
+        //     if (e.name === "Residential density") {
+        //         legendControl.update("residential");
+        //     } else if (e.name === "Daytime density") {
+        //         legendControl.update("daytime");
+        //     } else {
+        //         legendControl.update(null);
+        //     }
+        // });
+
+
+        map.on('baselayerchange', (e) => {
+            if (e.name === 'Residential density') {
+                legendControl.update('residential');
+                setLegendOn(true);
+            } else if (e.name === 'Daytime density') {
+                legendControl.update('daytime');
+                setLegendOn(true);
+            } else {
+                legendControl.update(null);
+                setLegendOn(false);
+            }
+            placeLegendResponsively();
+        });
+
+
+
+
+
+
+        })();
+
+
+
+        // async block to load stations and add them to the map
+        (async function () {
+
+        // 1. Load the station locations (no time dimension yet)
+        const resp = await fetch('dublin_bikes_stations.geojson');
+        if (!resp.ok) {
+            console.error('Failed to load stations GeoJSON:', resp.status, resp.statusText);
+            return;
+        }
+
+        const stationsGeoJSON = await resp.json();
+        console.log('Loaded stations:', stationsGeoJSON.features?.length ?? 0);
+
+        // 2. Marker styling helpers
+
+        function stationStyle(props) {
+            return {
+                radius: liveRadius(props),        // use live size
+                weight: 0,
+                color: '#222',
+                fillColor: colorForStation(props),// match the color logic too
+                fillOpacity: 0.4
+            };
+        }
+
+
+
+        // 3. Create a Leaflet GeoJSON layer from the data
+        const stationsLayer = L.geoJSON(stationsGeoJSON, {
+            pointToLayer: function (feature, latlng) {
+                const p = feature.properties;
+                return L.circleMarker(latlng, stationStyle(p));
+            },
+            onEachFeature: function (feature, layer) {
+                const p = feature.properties;
+                const occPct = (p.pct_occ_working != null)
+                    ? (p.pct_occ_working * 100).toFixed(0) + "%"
+                    : "—";
+
+                // interpret status text
+                let statusText = "";
+                if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) {
+                    statusText = "No docks free";
+                } else if (p.pct_occ_working <= 0.01) {
+                    statusText = "No bikes available";
+                } else {
+                    statusText = "Bikes available";
+                }
+
+                layer.bindTooltip(
+                    `<strong>${p.name}</strong><br/>
+                    ${p.time_iso}<br/>
+                    ${statusText}<br/>
+                    Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
+                    Load: ${occPct}`,
+                    { direction: 'top' }
+                );
+            }
+
+            
+            // onEachFeature: function (feature, layer) {
+            //     const p = feature.properties;
+            //     layer.bindTooltip(
+            //         `<strong>${p.name}</strong><br/>
+            //         ID: ${p.station_id}<br/>
+            //         Capacity: ${p.capacity} docks`,
+            //         { direction: 'top' }
+            //     );
+            // }
+        });
+
+        // 4. Add to map
+        stationsLayer.addTo(map);
+
+        // 5. Fit map to all stations so you're centered on real data
+        // 5. Fit map to all stations so you're centered on real data
+        const bounds = stationsLayer.getBounds();
+        if (bounds && bounds.isValid && bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.1));
+        } else {
+            // fallback: center on Dublin-ish if something is weird
+            map.setView([53.3465, -6.27], 14);
+        }
+
+
+        })();
+
+
+        // async block #2: load 15-min dataset, build frames, create UI, animate
+        (async function () {
+
+        // 1. Load the 15-min binned dataset
+        const resp = await fetch('dublin_bikes_aug12_15min.geojson');
+        if (!resp.ok) {
+            console.error('Failed to load 15min GeoJSON:', resp.status, resp.statusText);
+            return;
+        }
+        const aug15 = await resp.json();
+        console.log('Loaded 15-min features:', aug15.features?.length ?? 0);
+
+        // 2. Group features by time_iso
+        // framesByTime = { "2025-08-12T05:15:00": [feature, feature, ...], ... }
+        const framesByTime = {};
+        for (const feat of aug15.features) {
+            const t = feat.properties.time_iso;
+            if (!framesByTime[t]) {
+                framesByTime[t] = [];
+            }
+            framesByTime[t].push(feat);
+        }
+
+        // 3. Get an ordered list of all timestamps
+        const allTimes = Object.keys(framesByTime).sort();
+        console.log("Distinct frame times:", allTimes.length, "frames");
+
+        // 4. We'll keep a Leaflet layer reference here so we can replace it each frame
+        let snapshotLayer = null;
+
+        // helper to (re)draw one frame on the map
+        function drawFrame(time_iso) {
+            const frameFeatures = framesByTime[time_iso] || [];
+            const snapshotFC = { type: "FeatureCollection", features: frameFeatures };
+
+            // 1) Turn last frame into a faint blue trail instead of deleting it
+            if (snapshotLayer) {
+                snapshotLayer.eachLayer(m => {
+                // soft blue breadcrumb style
+                m.setStyle({
+                    color: '#3b82f6',        // stroke
+                    fillColor: '#3b82f6',    // fill
+                    fillOpacity: 0.18,
+                    weight: 0,
+                    radius: 3                // small dots so the current frame stands out
+                });
+                });
+                trailGroup.addLayer(snapshotLayer);
+                trailLayers.push(snapshotLayer);
+                if (trailLayers.length > TRAIL_FRAMES) {
+                const old = trailLayers.shift();
+                trailGroup.removeLayer(old);
+                }
+            }
+
+            // 2) Draw the new "current" snapshot on top
+            snapshotLayer = L.geoJSON(snapshotFC, {
+                pointToLayer: (feature, latlng) => L.circleMarker(latlng, snapshotStyle(feature.properties)),
+                onEachFeature: function (feature, layer) {
+                const p = feature.properties;
+                const occPct = (p.pct_occ_working != null) ? (p.pct_occ_working * 100).toFixed(0) + "%" : "—";
+                let statusText = "";
+                if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) statusText = "No docks free";
+                else if (p.pct_occ_working <= 0.01) statusText = "No bikes available";
+                else statusText = "Bikes available";
+                layer.bindTooltip(
+                    `<strong>${p.name}</strong><br/>
+                    ${p.time_iso}<br/>
+                    ${statusText}<br/>
+                    Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
+                    Load: ${occPct}`,
+                    { direction: 'top' }
+                );
+                }
+            }).addTo(map);
+
+            const labelEl = document.getElementById('time-label');
+            if (labelEl) labelEl.innerHTML = formatTimeLabel(time_iso);
+        }
+
+        
+
+        // 5. --- build simple UI controls (slider + play/pause) ---
+
+        // 5. --- build simple UI controls (slider + play/pause) ---
+
+        // SELECT the existing container you put in the HTML body
+        const uiDiv = document.getElementById('time-ui');
+
+        // Fill it with the controls (no inline styles here—let CSS handle size)
+        uiDiv.innerHTML = `
+            <div class="time-row">
+                <button id="prev-frame" class="play-btn" aria-label="Previous">◀</button>
+                <button id="play-pause" class="play-btn" aria-label="Play/Pause">▶</button>
+                <button id="next-frame" class="play-btn" aria-label="Next">▶▶</button>
+                <span id="time-label" class="time-label">--:--</span>
+            </div>
+            <input id="time-slider" class="time-slider" type="range"
+                    min="0" max="${allTimes.length - 1}" value="0" aria-label="Time slider">
+            `;
+
+
+        // Prevent map panning/zooming when interacting with the UI
+        L.DomEvent.disableClickPropagation(uiDiv);
+        L.DomEvent.disableScrollPropagation(uiDiv);
+
+        // (Optional) if you still want absolute positioning via JS, keep these;
+        // otherwise, move them to CSS and delete these three lines.
+        uiDiv.style.position = 'absolute';
+        uiDiv.style.left = '1rem';
+        uiDiv.style.bottom = '1rem';
+        uiDiv.style.zIndex = 1200;
+
+        
+        const sliderEl = document.getElementById('time-slider');
+        const playBtn  = document.getElementById('play-pause');
+        const prevBtn  = document.getElementById('prev-frame');
+        const nextBtn  = document.getElementById('next-frame');
+
+        function goToIndex(idx){
+        const len = allTimes.length;
+        if (len === 0) return;
+        // wrap around
+        idx = (idx + len) % len;
+        sliderEl.value = idx;
+        drawFrame(allTimes[idx]);
+        }
+
+        function currentIndex(){
+        return parseInt(sliderEl.value, 10) || 0;
+        }
+
+        function nextFrame(){ goToIndex(currentIndex() + 1); }
+        function prevFrame(){ goToIndex(currentIndex() - 1); }
+
+        // click handlers
+        nextBtn.addEventListener('click', nextFrame);
+        prevBtn.addEventListener('click', prevFrame);
+
+        // autoplay uses nextFrame
+        let playing = false;
+        let playTimer = null;
+
+        playBtn.addEventListener('click', () => {
+        playing = !playing;
+        if (playing) {
+            playBtn.textContent = '⏸';
+            playTimer = setInterval(nextFrame, 380); // snappier feel
+        } else {
+            playBtn.textContent = '▶';
+            clearInterval(playTimer);
+        }
+        });
+
+        // track which legend is showing right now
+        let currentLegendMode = null; // 'daytime' | 'residential' | null
+
+        // I think I delete all of the below legend control stuff
+        
+        // const legendControl = L.control({ position: 'bottomright' });
+        // legendControl.onAdd = function () {
+        // this._div = L.DomUtil.create('div', 'density-legend');
+        // this.update(null);
+        // return this._div;
+        // };
+        // legendControl.update = function (mode) {
+        // currentLegendMode = mode; // keep state in sync
+        // if (!mode) {
+        //     this._div.style.display = 'none';
+        //     this._div.innerHTML = '';
+        // } else {
+        //     this._div.style.display = 'block';
+        //     this._div.innerHTML = getLegendHTML(mode);
+        // }
+        // };
+        // legendControl.addTo(map);
+
+        // define ONCE, not inside drawFrame
+        // function placeLegendResponsively() {
+        // const isNarrow = window.matchMedia('(max-width: 600px)').matches;
+        // legendControl.setPosition(isNarrow ? 'topright' : 'bottomright');
+
+        // // after reparenting, make sure content & styles persist
+        // setTimeout(() => {
+        //     const c = legendControl._container;
+        //     if (c) c.style.maxWidth = '80vw';
+        //     // re-apply current mode in case the DOM was rebuilt
+        //     if (typeof currentLegendMode !== 'undefined') {
+        //     legendControl.update(currentLegendMode);
+        //     }
+        // }, 0);
+        // }
+
+        // map.whenReady(placeLegendResponsively);
+        // window.addEventListener('resize', placeLegendResponsively);
+
+
+
+
+
+        
+        // Wire up controls
+        // const sliderEl = document.getElementById('time-slider');
+        // const playBtn  = document.getElementById('play-pause');
+
+        // 6) slider -> draw frame
+        sliderEl.addEventListener('input', () => {
+        const idx = parseInt(sliderEl.value, 10);
+        drawFrame(allTimes[idx]);
+        });
+
+        // 7) play/pause logic
+        // let playing = false;
+        // let playTimer = null;
+
+        function stepFrame() {
+        let idx = parseInt(sliderEl.value, 10);
+        idx = (idx + 1) % allTimes.length;
+        sliderEl.value = idx;
+        drawFrame(allTimes[idx]);
+        }
+
+        // playBtn.addEventListener('click', () => {
+        // playing = !playing;
+        // if (playing) {
+        //     playBtn.textContent = '⏸';
+        //     playTimer = setInterval(stepFrame, 380); // snappier feel
+        // } else {
+        //     playBtn.textContent = '▶';
+        //     clearInterval(playTimer);
+        // }
+        // });
+
+        // keyboard: left/right to nudge frames when focused on the map or UI
+        document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') { nextFrame(); }
+        if (e.key === 'ArrowLeft')  { prevFrame(); }
+        });
+
+        // Breadcrumb trail holder (added BEFORE snapshots so snapshots draw on top)
+        const trailGroup = L.layerGroup().addTo(map);
+        const TRAIL_FRAMES = 6;     // how many past frames to keep
+        const trailLayers = [];     // ring buffer
+
+        // 8. draw the very first frame to initialize map
+        drawFrame(allTimes[0]);
+
+        })();
+
+    
+
+</script>
+</html>

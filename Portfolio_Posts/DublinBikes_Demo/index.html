@@ -1,984 +1,1531 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Dublin Bikes live map (draft)</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Explore Dublin Bikes station availability in 15-minute snapshots across one day.">
+  <title>Dublin Bikes through the day</title>
 
-    <meta name="robots" content="noindex, nofollow" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin=""/>
+  <style>
+    :root {
+      --ink: #16202a;
+      --muted: #5d6a76;
+      --paper: rgba(255, 255, 255, 0.94);
+      --paper-solid: #ffffff;
+      --line: rgba(22, 32, 42, 0.14);
+      --accent: #087f8c;
+      --accent-dark: #05626c;
+      --shadow: 0 10px 34px rgba(24, 39, 52, 0.16);
+      --radius: 14px;
+      --timeline-height: 112px;
+    }
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""></script>
+    * {
+      box-sizing: border-box;
+    }
 
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            height: 100vh;
-            width: 100vw;
-        }
-    
-        /* Legend visual baseline */
-        .density-legend {
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            padding: 8px 10px;
-            border-radius: 6px;
-            font-family: sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
-            min-width: 140px;
-            max-width: 200px;
-        }
-    
-        /* Time control baseline */
-        #time-ui {
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            font-family: sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
-            border-radius: 6px;
-            padding: 0.75rem 1rem;
-            max-width: 460px;
-        }
-    
-        #time-ui .time-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            gap: 0.5rem;
-        }
-    
-        #time-ui .play-btn {
-            background: #fff;
-            color: #000;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1.2;
-        }
-    
-        #time-ui .time-label {
-            font-size: 12px;
-            font-weight: 500;
-            min-width: 4rem;
-        }
-    
-        #time-ui .time-slider {
-            width: 400px;
-        }
-    
-        /* --------- Mobile scaling ---------
-            If viewport is narrow (e.g. phone), make everything
-            chunkier / finger-friendly.
-        */
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      background: #e8edf0;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-        /* Ensure Leaflet controls/legend sit above the map on iOS */
-        .leaflet-control,
-        .density-legend { z-index: 1300; }
+    button,
+    input {
+      font: inherit;
+    }
 
-        /* Bigger, finger-friendly controls by default */
-        /* #time-ui .play-btn {
-        min-width: 44px;
-        min-height: 44px;
-        } */
+    button {
+      color: inherit;
+    }
 
-        /* iOS range slider thumb: larger & easier to grab */
-        input[type="range"] {
-        -webkit-appearance: none;
-        height: 32px;            /* taller track for touch */
-        }
-        input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        }
+    #map {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      background: #e8edf0;
+    }
 
-        /* Keep your existing @media … rules; now they will actually apply on iPhone. */
-        /* --- Desktop / laptop (bigger than 900px) --- */
-        @media (min-width: 901px){
-        #time-ui {
-            padding: 0.5rem 0.75rem;
-            max-width: 520px;           /* looks balanced next to map */
-        }
-        #time-ui .time-row { gap: 0.75rem; }
-        #time-ui .play-btn {
-            font-size: 14px;
-            padding: 8px 10px;
-            min-width: auto;            /* override mobile 44px box */
-            min-height: auto;
-            border-radius: 6px;
-        }
-        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
-        #time-ui .time-slider { width: 460px; height: 16px; }
-        }
+    .map-card {
+      position: absolute;
+      z-index: 1100;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
 
-        /* --- Phone / narrow screens (≤600px) --- */
-        @media (max-width: 600px){
-        #time-ui { max-width: 80vw; padding: 1rem 1rem; border-radius: 8px; }
-        #time-ui .play-btn {
-            font-size: 16px;
-            padding: 8px 12px;
-            min-width: 44px;            /* touch target */
-            min-height: 44px;
-        }
-        #time-ui .time-label { font-size: 14px; min-width: 5rem; }
-        #time-ui .time-slider { width: 60vw; height: 32px; }
-        }
+    .title-card {
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      width: min(370px, calc(100vw - 28px));
+      padding: 15px 17px 14px;
+    }
 
+    .title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
-        /* When legend is visible, keep time UI from stretching too far right on mid-width screens */
-        @media (max-width: 1100px) and (min-width: 601px) {
-        body.legend-on #time-ui {
-            /* leave ~220–260px for the legend + margins */
-            max-width: calc(100vw - 18rem);
-        }
-        body.legend-on #time-ui .time-slider {
-            width: calc(100vw - 22rem); /* a bit smaller than container */
-        }
-        }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(22px, 2.2vw, 29px);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+    }
 
-        /* Extra guard at tablet-ish sizes */
-        @media (max-width: 900px) and (min-width: 601px) {
-        body.legend-on #time-ui {
-            max-width: 60vw;
-        }
-        body.legend-on #time-ui .time-slider {
-            width: 45vw;
-        }
-        }
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      line-height: 1.35;
+    }
 
+    .icon-button {
+      display: inline-grid;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+    }
 
-        #time-ui .time-label { display: inline-block; }
-        @media (max-width:600px){
-        #time-ui .time-label { display:block; margin-top:2px; }
-        }
+    .icon-button:hover {
+      border-color: rgba(8, 127, 140, 0.5);
+      background: #f1fbfb;
+    }
 
-        @media (max-width: 600px){
-            #time-ui { max-width: 92vw; }
-            #time-ui .time-slider { width: 72vw; }
-        }
+    .icon-button:active {
+      transform: scale(0.96);
+    }
 
+    .icon-button:focus-visible,
+    .context-button:focus-visible,
+    .speed-button:focus-visible,
+    .play-button:focus-visible,
+    .step-button:focus-visible,
+    .close-button:focus-visible,
+    .time-slider:focus-visible {
+      outline: 3px solid rgba(8, 127, 140, 0.28);
+      outline-offset: 2px;
+    }
 
-        @media (max-width: 600px) {
-    
-            .density-legend {
-                font-size: 14px;
-                line-height: 1.5;
-                padding: 10px 12px;
-                border-radius: 8px;
-            }
-    
-            #time-ui {
-                font-size: 14px;
-                line-height: 1.5;
-                padding: 1rem 1rem;
-                border-radius: 8px;
-                max-width: 80vw;
-            }
-    
-            #time-ui .play-btn {
-                font-size: 16px;
-                padding: 8px 12px;
-                border-radius: 6px;
-            }
-    
-            #time-ui .time-label {
-                font-size: 14px;
-                min-width: 5rem;
-            }
-    
-            #time-ui .time-slider {
-                width: 60vw;
-                height: 32px;        /* makes it easier to grab on touch */
-            }
-    
-            /* (Optional) make the whole UI sit a bit higher so it’s not under your thumb bar on iOS */
-            #time-ui {
-                bottom: 3rem !important;
-            }
-        }
-    </style>
-        
+    .station-key {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px 9px;
+      margin-top: 13px;
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
+      font-size: 10px;
+      font-weight: 700;
+      color: #43515e;
+    }
 
+    .key-item {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .key-dot {
+      width: 10px;
+      height: 10px;
+      flex: 0 0 10px;
+      border: 1px solid rgba(22, 32, 42, 0.42);
+      border-radius: 50%;
+    }
+
+    .context-card {
+      top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right));
+      width: 270px;
+      padding: 13px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .context-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #f3f6f7;
+    }
+
+    .context-button {
+      min-height: 38px;
+      padding: 6px 5px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #53616d;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1.1;
+      transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .context-button[aria-pressed="true"] {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 2px 8px rgba(24, 39, 52, 0.12);
+    }
+
+    .density-legend {
+      display: none;
+      margin-top: 12px;
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
+    }
+
+    .density-legend.is-visible {
+      display: block;
+    }
+
+    .density-legend-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: 17px 1fr;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+      color: #4d5a66;
+      font-size: 10px;
+      font-weight: 650;
+    }
+
+    .legend-swatch {
+      width: 17px;
+      height: 10px;
+      border: 1px solid rgba(22, 32, 42, 0.22);
+      border-radius: 3px;
+    }
+
+    .density-legend-mobile {
+      display: none;
+    }
+
+    .timeline {
+      position: absolute;
+      z-index: 1200;
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      left: max(14px, env(safe-area-inset-left));
+      width: min(820px, calc(100vw - 28px));
+      min-height: var(--timeline-height);
+      margin: 0 auto;
+      padding: 13px 16px 12px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 12px 38px rgba(24, 39, 52, 0.22);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .timeline-top {
+      display: grid;
+      grid-template-columns: auto minmax(110px, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .playback-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .play-button,
+    .step-button {
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      cursor: pointer;
+    }
+
+    .play-button {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 5px 14px rgba(8, 127, 140, 0.28);
+      transition: background 140ms ease, transform 140ms ease;
+    }
+
+    .play-button:hover {
+      background: var(--accent-dark);
+    }
+
+    .play-button:active {
+      transform: scale(0.96);
+    }
+
+    .step-button {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #edf2f3;
+      color: #35434f;
+      transition: background 140ms ease;
+    }
+
+    .step-button:hover {
+      background: #dde7e9;
+    }
+
+    .time-copy {
+      min-width: 0;
+    }
+
+    .time-label {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 25px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    .time-detail {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .speed-control {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      border-radius: 9px;
+      background: #edf2f3;
+    }
+
+    .speed-button {
+      min-width: 38px;
+      min-height: 32px;
+      padding: 4px 7px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: #5a6874;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .speed-button[aria-pressed="true"] {
+      background: #fff;
+      color: var(--accent-dark);
+      box-shadow: 0 2px 7px rgba(24, 39, 52, 0.12);
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 35px 1fr 35px;
+      align-items: center;
+      gap: 9px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .time-slider {
+      width: 100%;
+      height: 20px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .time-slider::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--slider-progress, 0%),
+        #dce4e7 var(--slider-progress, 0%),
+        #dce4e7 100%
+      );
+    }
+
+    .time-slider::-webkit-slider-thumb {
+      width: 18px;
+      height: 18px;
+      margin-top: -6px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 1px 6px rgba(24, 39, 52, 0.35);
+      -webkit-appearance: none;
+    }
+
+    .time-slider::-moz-range-track {
+      height: 5px;
+      border-radius: 999px;
+      background: #dce4e7;
+    }
+
+    .time-slider::-moz-range-progress {
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .time-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 1px 6px rgba(24, 39, 52, 0.35);
+    }
+
+    .loading-panel,
+    .error-panel {
+      position: absolute;
+      z-index: 1600;
+      top: 50%;
+      left: 50%;
+      width: min(360px, calc(100vw - 32px));
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-solid);
+      box-shadow: var(--shadow);
+      text-align: center;
+      transform: translate(-50%, -50%);
+    }
+
+    .loading-spinner {
+      width: 28px;
+      height: 28px;
+      margin: 0 auto 12px;
+      border: 3px solid #dce7e9;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 850ms linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-panel p,
+    .error-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .error-panel {
+      display: none;
+      text-align: left;
+    }
+
+    .error-panel strong {
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .info-backdrop {
+      position: fixed;
+      z-index: 2400;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(18, 28, 36, 0.46);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+
+    .info-backdrop.is-open {
+      display: flex;
+    }
+
+    .info-panel {
+      position: relative;
+      width: min(560px, 100%);
+      max-height: min(720px, calc(100dvh - 40px));
+      overflow-y: auto;
+      padding: 25px 27px 24px;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 24px 80px rgba(8, 20, 28, 0.32);
+    }
+
+    .info-panel h2 {
+      margin: 0 45px 13px 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 27px;
+      letter-spacing: -0.02em;
+    }
+
+    .info-panel h3 {
+      margin: 20px 0 6px;
+      font-size: 13px;
+    }
+
+    .info-panel p {
+      margin: 0 0 11px;
+      color: #4d5a66;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .info-note {
+      padding: 11px 12px;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: #f0f8f8;
+    }
+
+    .close-button {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: #f4f7f8;
+      cursor: pointer;
+      font-size: 21px;
+      line-height: 1;
+    }
+
+    .leaflet-control-zoom {
+      margin-bottom: calc(var(--timeline-height) + 30px) !important;
+      border: 0 !important;
+      border-radius: 11px !important;
+      box-shadow: var(--shadow) !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      width: 38px !important;
+      height: 38px !important;
+      line-height: 38px !important;
+      color: var(--ink) !important;
+    }
+
+    .leaflet-tooltip {
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 10px;
+      box-shadow: 0 8px 25px rgba(24, 39, 52, 0.22);
+      color: var(--ink);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .tooltip-title {
+      display: block;
+      margin-bottom: 3px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 14px;
+    }
+
+    .tooltip-status {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent-dark);
+      font-weight: 800;
+    }
+
+    .tooltip-muted {
+      color: #6a7781;
+    }
+
+    .leaflet-attribution-flag {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      :root {
+        --timeline-height: 142px;
+      }
+
+      .top-ui {
+        position: absolute;
+        z-index: 1100;
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right));
+        left: max(8px, env(safe-area-inset-left));
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .top-ui .map-card {
+        position: static;
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+
+      .title-card {
+        padding: 11px 12px 10px;
+      }
+
+      h1 {
+        font-size: 21px;
+      }
+
+      .subtitle {
+        margin-top: 4px;
+        font-size: 10px;
+      }
+
+      .station-key {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px 7px;
+        margin-top: 8px;
+        padding-top: 8px;
+        font-size: 9px;
+      }
+
+      .icon-button {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+      }
+
+      .context-card {
+        padding: 0 12px 11px;
+      }
+
+      .context-card .eyebrow {
+        margin: 0 0 5px;
+        font-size: 0;
+      }
+
+      .context-card .eyebrow::after {
+        content: "Context";
+        font-size: 9px;
+        letter-spacing: 0.1em;
+      }
+
+      .context-button {
+        min-height: 31px;
+        font-size: 10px;
+      }
+
+      .density-legend {
+        max-height: none;
+        margin-top: 7px;
+        padding-top: 7px;
+        overflow: visible;
+      }
+
+      .density-legend-title {
+        margin-bottom: 5px;
+        font-size: 9px;
+        line-height: 1.2;
+      }
+
+      .density-legend .legend-row {
+        display: none;
+      }
+
+      .density-legend-mobile {
+        display: block;
+      }
+
+      .density-ramp {
+        height: 7px;
+        border: 1px solid rgba(22, 32, 42, 0.2);
+        border-radius: 999px;
+      }
+
+      .density-legend[data-mode="residential"] .density-ramp {
+        background: linear-gradient(90deg, #f3e5f5 0%, #ab47bc 50%, #4a1486 100%);
+      }
+
+      .density-legend[data-mode="daytime"] .density-ramp {
+        background: linear-gradient(90deg, #c6dbef 0%, #4292c6 50%, #08306b 100%);
+      }
+
+      .density-ramp-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 3px;
+        color: #5b6874;
+        font-size: 8px;
+        font-weight: 700;
+      }
+
+      .timeline {
+        right: max(8px, env(safe-area-inset-right));
+        bottom: max(8px, env(safe-area-inset-bottom));
+        left: max(8px, env(safe-area-inset-left));
+        width: calc(100vw - 16px);
+        padding: 10px 11px 9px;
+        border-radius: 14px;
+      }
+
+      .timeline-top {
+        grid-template-columns: auto 1fr;
+        gap: 9px;
+      }
+
+      .speed-control {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+      }
+
+      .speed-button {
+        flex: 1;
+        min-height: 30px;
+      }
+
+      .time-label {
+        font-size: 22px;
+      }
+
+      .slider-row {
+        margin-top: 7px;
+      }
+
+      .leaflet-control-zoom {
+        display: none;
+      }
+
+      .leaflet-control-attribution {
+        max-width: 70vw;
+        font-size: 8px !important;
+      }
+
+      .info-panel {
+        padding: 22px 20px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .station-key {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-height: 650px) and (orientation: landscape) {
+      .station-key {
+        display: none;
+      }
+
+      .timeline {
+        min-height: 94px;
+      }
+
+      .slider-row {
+        margin-top: 5px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
 
 <body>
-    <div id="map"></div>
-    <div id="time-ui" role="group" aria-label="Time controls"></div>
-    <!-- <div id="legend" class="density-legend" hidden></div> -->
-</body>
+  <main id="map" aria-label="Interactive map of Dublin Bikes station availability"></main>
 
-<script>
-    const map = L.map('map');
+  <div class="top-ui">
+    <section class="map-card title-card" aria-labelledby="map-title">
+      <div class="title-row">
+        <div>
+          <h1 id="map-title">Dublin Bikes through the day</h1>
+          <p class="subtitle" id="map-subtitle">15-minute station snapshots</p>
+        </div>
+        <button class="icon-button" id="info-button" type="button" aria-label="About this map" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            <path d="M12 10.5v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+            <circle cx="12" cy="7.5" r="1.2" fill="currentColor"></circle>
+          </svg>
+        </button>
+      </div>
+
+      <div class="station-key" aria-label="Station availability legend">
+        <span class="key-item"><i class="key-dot" style="background:#d73027"></i>No bikes</span>
+        <span class="key-item"><i class="key-dot" style="background:#f28e2b"></i>Low bikes</span>
+        <span class="key-item"><i class="key-dot" style="background:#f6cf57"></i>Mixed</span>
+        <span class="key-item"><i class="key-dot" style="background:#2a9d68"></i>Many bikes</span>
+        <span class="key-item"><i class="key-dot" style="background:#3977b8"></i>No docks</span>
+        <span class="key-item"><i class="key-dot" style="background:#7b8792"></i>Offline</span>
+      </div>
+    </section>
+
+    <section class="map-card context-card" aria-labelledby="context-title">
+      <p class="eyebrow" id="context-title">Neighborhood context</p>
+      <div class="context-buttons" role="group" aria-label="Context layer">
+        <button class="context-button" type="button" data-context="none" aria-pressed="true">None</button>
+        <button class="context-button" type="button" data-context="residential" aria-pressed="false">Residents</button>
+        <button class="context-button" type="button" data-context="daytime" aria-pressed="false">Daytime</button>
+      </div>
+      <div class="density-legend" id="density-legend" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <section class="timeline" aria-label="Animation controls">
+    <div class="timeline-top">
+      <div class="playback-buttons">
+        <button class="step-button" id="previous-button" type="button" aria-label="Previous 15-minute frame">
+          <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M12.8 4.2 7 10l5.8 5.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+        <button class="play-button" id="play-button" type="button" aria-label="Play animation" aria-pressed="false"></button>
+        <button class="step-button" id="next-button" type="button" aria-label="Next 15-minute frame">
+          <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m7.2 4.2 5.8 5.8-5.8 5.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="time-copy" aria-live="polite">
+        <span class="time-label" id="time-label">--:--</span>
+        <span class="time-detail" id="time-detail">Loading station data</span>
+      </div>
+
+      <div class="speed-control" role="group" aria-label="Playback speed">
+        <button class="speed-button" type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+        <button class="speed-button" type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button class="speed-button" type="button" data-speed="2" aria-pressed="false">2×</button>
+      </div>
+    </div>
+
+    <div class="slider-row">
+      <span>00:00</span>
+      <input class="time-slider" id="time-slider" type="range" min="0" max="95" value="0" step="1" aria-label="Time of day">
+      <span>23:45</span>
+    </div>
+  </section>
+
+  <section class="loading-panel" id="loading-panel" role="status">
+    <div class="loading-spinner" aria-hidden="true"></div>
+    <p>Loading Dublin Bikes data…</p>
+  </section>
+
+  <section class="error-panel" id="error-panel" role="alert">
+    <strong>The map data could not be loaded.</strong>
+    <p id="error-copy">Run this folder through a local web server and check that the JSON and GeoJSON filenames match.</p>
+  </section>
+
+  <div class="info-backdrop" id="info-backdrop" role="presentation">
+    <article class="info-panel" role="dialog" aria-modal="true" aria-labelledby="info-title">
+      <button class="close-button" id="close-info" type="button" aria-label="Close information panel">×</button>
+      <h2 id="info-title">About this map</h2>
+      <p>
+        The map shows the reported availability of Dublin Bikes at 15-minute intervals on
+        <strong id="info-date">the selected day</strong>. Each frame uses the latest station report
+        recorded within that interval.
+      </p>
+
+      <h3>How to read the stations</h3>
+      <p>
+        Circle size reflects the number of bikes available. Color shows the balance between
+        bikes and usable empty docks. Red stations have no bikes to rent; blue stations have
+        no available docks for returns.
+      </p>
+      <p class="info-note">
+        “Working capacity” is the number of available bikes plus available docks at that moment.
+        It may be lower than the station’s stated capacity when equipment is unavailable.
+      </p>
+
+      <h3>Neighborhood layers</h3>
+      <p>
+        Residential density provides nighttime population context. Daytime density is based on
+        2016 data and helps indicate where people are present during working hours.
+      </p>
+      <p>
+        Detailed source notes and methodology can be added here before publication.
+      </p>
+    </article>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    "use strict";
+
+    const FILES = {
+      stations: "dublin_bikes_stations_june2026.geojson",
+      animation: "dublin_bikes_june2026_animation.json",
+      residential: "residential_density_DubCity.geojson",
+      daytime: "DublinCity_Job_Density_2016.geojson"
+    };
+
+    const BASE_FRAME_MS = 260;
+    const STATION_COLORS = {
+      empty: "#d73027",
+      low: "#f28e2b",
+      mixed: "#f6cf57",
+      high: "#2a9d68",
+      full: "#3977b8",
+      offline: "#7b8792"
+    };
+
+    const map = L.map("map", {
+        preferCanvas: true,
+        zoomControl: false,
+        attributionControl: true,
+
+        zoomSnap: 0.25,
+        zoomDelta: 0.25,
+        wheelPxPerZoomLevel: 120
+    });
+    
+    // const map = L.map("map", {
+    //   preferCanvas: true,
+    //   zoomControl: false,
+    //   attributionControl: true
+    // });
+
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+
+    const CARTO_API_KEY = "cb1_2jpl_1_5c01008d8374db7941add4bc";
 
     L.tileLayer(
-          'https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=1WSNdwCIsFmRRwN8LbjF',
+    "https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key="
+        + encodeURIComponent(CARTO_API_KEY),
+    {
+        subdomains: "abcd",
+        maxZoom: 20,
+        attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+        '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }
+    ).addTo(map);
+
+    map.createPane("densityPane");
+    map.getPane("densityPane").style.zIndex = 350;
+    map.getPane("densityPane").style.pointerEvents = "none";
+
+    const pointRenderer = L.canvas({ padding: 0.5 });
+    const stationLayer = L.layerGroup().addTo(map);
+    const markersById = new Map();
+
+    let frames = [];
+    let currentFrameIndex = 0;
+    let playbackSpeed = 1;
+    let playbackTimer = null;
+    let isPlaying = false;
+    let residentialLayer = null;
+    let daytimeLayer = null;
+    let activeContextLayer = null;
+
+    const loadingPanel = document.getElementById("loading-panel");
+    const errorPanel = document.getElementById("error-panel");
+    const errorCopy = document.getElementById("error-copy");
+    const slider = document.getElementById("time-slider");
+    const timeLabel = document.getElementById("time-label");
+    const timeDetail = document.getElementById("time-detail");
+    const playButton = document.getElementById("play-button");
+    const previousButton = document.getElementById("previous-button");
+    const nextButton = document.getElementById("next-button");
+    const densityLegend = document.getElementById("density-legend");
+    const infoButton = document.getElementById("info-button");
+    const infoBackdrop = document.getElementById("info-backdrop");
+    const closeInfoButton = document.getElementById("close-info");
+
+    const playIcon =
+      '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">' +
+      '<path d="M6.6 4.3 15 10l-8.4 5.7Z" fill="currentColor"></path></svg>';
+
+    const pauseIcon =
+      '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">' +
+      '<rect x="5.4" y="4.2" width="3.2" height="11.6" rx="1" fill="currentColor"></rect>' +
+      '<rect x="11.4" y="4.2" width="3.2" height="11.6" rx="1" fill="currentColor"></rect></svg>';
+
+    playButton.innerHTML = playIcon;
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function fetchJson(path, optional) {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) {
+          throw new Error(path + " returned HTTP " + response.status);
+        }
+        return await response.json();
+      } catch (error) {
+        if (optional) {
+          console.warn("Optional context layer was not loaded:", error);
+          return null;
+        }
+        throw error;
+      }
+    }
+
+    function stationStatus(record) {
+      const workingCapacity = Number(record.working_capacity || 0);
+      const bikes = Number(record.bikes || 0);
+      const docks = Number(record.docks || 0);
+      const occupancy = record.occupancy == null ? null : Number(record.occupancy);
+      const serviceAvailable =
+        record.is_online !== false &&
+        record.is_installed !== false &&
+        record.is_renting !== false &&
+        record.is_returning !== false &&
+        workingCapacity > 0;
+
+      if (!serviceAvailable || occupancy == null || Number.isNaN(occupancy)) {
+        return { key: "offline", label: "Station unavailable" };
+      }
+      if (bikes === 0) {
+        return { key: "empty", label: "No bikes available" };
+      }
+      if (docks === 0) {
+        return { key: "full", label: "No docks available" };
+      }
+      if (occupancy < 0.3) {
+        return { key: "low", label: "Low bike availability" };
+      }
+      if (occupancy < 0.7) {
+        return { key: "mixed", label: "Mixed availability" };
+      }
+      return { key: "high", label: "Many bikes available" };
+    }
+
+    function radiusForBikes(value) {
+      const bikes = Math.max(0, Number(value || 0));
+      return Math.max(4.5, Math.min(13, 4.5 + Math.sqrt(bikes) * 1.45));
+    }
+
+    function markerStyle(record) {
+      const status = stationStatus(record);
+      return {
+        radius: radiusForBikes(record.bikes),
+        color: "#25313a",
+        weight: 0.8,
+        opacity: 0.8,
+        fillColor: STATION_COLORS[status.key],
+        fillOpacity: status.key === "offline" ? 0.72 : 0.9
+      };
+    }
+
+    function formatClock(isoString) {
+      if (!isoString) return "--:--";
+      const match = String(isoString).match(/T(\d{2}):(\d{2})/);
+      return match ? match[1] + ":" + match[2] : String(isoString);
+    }
+
+    function formatDateLabel(dateString) {
+      if (!dateString) return "15-minute station snapshots";
+      const parts = String(dateString).split("-").map(Number);
+      if (parts.length !== 3) return dateString;
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      return new Intl.DateTimeFormat("en-IE", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(date);
+    }
+
+    function tooltipHtml(record, staticProperties) {
+      const status = stationStatus(record);
+      const occupancy =
+        record.occupancy == null || Number.isNaN(Number(record.occupancy))
+          ? "—"
+          : Math.round(Number(record.occupancy) * 100) + "%";
+      const nominalCapacity = staticProperties.capacity == null
+        ? "—"
+        : escapeHtml(staticProperties.capacity);
+      const reportTime = formatClock(record.reported_at);
+
+      return [
+        '<strong class="tooltip-title">' + escapeHtml(staticProperties.name) + "</strong>",
+        '<span class="tooltip-status">' + escapeHtml(status.label) + "</span>",
+        "Bikes available: <strong>" + escapeHtml(record.bikes) + "</strong><br>",
+        "Docks available: <strong>" + escapeHtml(record.docks) + "</strong><br>",
+        "Working capacity: " + escapeHtml(record.working_capacity) + "<br>",
+        "Station occupancy: " + occupancy + "<br>",
+        '<span class="tooltip-muted">Nominal capacity: ' + nominalCapacity +
+          " · Reported " + escapeHtml(reportTime) + "</span>"
+      ].join("");
+    }
+
+    function createStationMarkers(stationGeoJson) {
+      const markerList = [];
+
+      for (const feature of stationGeoJson.features || []) {
+        const properties = feature.properties || {};
+        const stationId = String(properties.station_id);
+        const coordinates = feature.geometry && feature.geometry.coordinates;
+        if (!coordinates || coordinates.length < 2) continue;
+
+        const marker = L.circleMarker(
+          [coordinates[1], coordinates[0]],
           {
-            tileSize: 512,
-            zoomOffset: -1,
-            maxZoom: 20,
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
-              'contributors &copy; <a href="https://www.maptiler.com/">MapTiler</a>'
+            renderer: pointRenderer,
+            radius: 5,
+            color: "#25313a",
+            weight: 0.7,
+            fillColor: STATION_COLORS.offline,
+            fillOpacity: 0.5
           }
-        ).addTo(map)
+        ).addTo(stationLayer);
 
-            // make a custom pane for the jobs polygons so they sit under the bike dots
-        // pane for choropleth polygons (both daytime + residential)
-        map.createPane('choropleth-pane');
-        map.getPane('choropleth-pane').style.zIndex = 350;  // under bike dots
-        map.getPane('choropleth-pane').style.pointerEvents = 'none'; // don't block tooltips on bikes
+        marker.bindTooltip(
+          '<strong class="tooltip-title">' + escapeHtml(properties.name) +
+          '</strong><span class="tooltip-muted">Loading station status…</span>',
+          { direction: "top", offset: [0, -4], sticky: true }
+        );
 
-        // pointerEvents 'none' means polygons won't block mouseover on the bike dots
+        markersById.set(stationId, {
+          marker: marker,
+          properties: properties
+        });
+        markerList.push(marker);
+      }
 
+    //   const bounds = L.featureGroup(markerList).getBounds();
+    //   if (bounds.isValid()) {
+    //     map.fitBounds(bounds.pad(0.08), { maxZoom: 14 });
+    //   } else {
+    //     map.setView([53.345, -6.265], 13);
+    //   }
+    // }
+    const bounds = L.featureGroup(markerList).getBounds();
 
+    if (bounds.isValid()) {
+    const isMobile = window.innerWidth <= 700;
+    const topUi = document.querySelector(".top-ui");
+    const timelinePanel = document.querySelector(".timeline");
+    const mobileLegendReserve = isMobile ? 52 : 0;
+    const topPadding = isMobile && topUi
+        ? Math.ceil(topUi.getBoundingClientRect().bottom + 12 + mobileLegendReserve)
+        : 18;
+    const bottomPadding = isMobile && timelinePanel
+        ? Math.ceil(window.innerHeight - timelinePanel.getBoundingClientRect().top + 12)
+        : 145;
 
+    map.fitBounds(bounds.pad(0.04), {
+        paddingTopLeft: [18, topPadding],
+        paddingBottomRight: [18, bottomPadding],
+        maxZoom: 14,
+        animate: false
+    });
+    } else {
+    map.setView([53.345, -6.265], 13);
+    }
+}
 
-        // Helper
+    function renderFrame(index) {
+      if (!frames.length) return;
 
-            // Helper to decide the fill color for a station at a snapshot in time.
-        // props = feature.properties
-        function colorForStation(props) {
-            const occ = props.pct_occ_working; // 0 to 1
-            const isFull = (props.is_full_working === true) || (occ >= 0.99);
-            const isEmpty = (occ === 0 || occ <= 0.01);
+      currentFrameIndex = (index + frames.length) % frames.length;
+      const frame = frames[currentFrameIndex];
+      const seenStationIds = new Set();
 
-            // Special case: station is "functionally full" of bikes (no docks left)
-            if (isFull) {
-                // distinct color, not on the red→green ramp
-                // blue reads as 'jammed / no return slots'
-                return '#4e79a7';
-            }
+      for (const record of frame.stations || []) {
+        const stationId = String(record.station_id);
+        const entry = markersById.get(stationId);
+        if (!entry) continue;
 
-            // Empty or basically empty of bikes
-            if (isEmpty) {
-                // red = "bad, nothing to take"
-                return '#d73027';
-            }
+        seenStationIds.add(stationId);
+        entry.marker.setRadius(radiusForBikes(record.bikes));
+        entry.marker.setStyle(markerStyle(record));
+        entry.marker.setTooltipContent(tooltipHtml(record, entry.properties));
+      }
 
-            // Low stock (0% - 30%)
-            if (occ < 0.3) {
-                return '#fc8d59'; // orange-ish
-            }
-
-            // Medium (30% - 70%)
-            if (occ < 0.7) {
-                return '#fee08b'; // yellow-ish
-            }
-
-            // High (70% - ~100%, but not flagged as 'full')
-            return '#1a9850'; // green
+      markersById.forEach(function (entry, stationId) {
+        if (!seenStationIds.has(stationId)) {
+          entry.marker.setStyle({
+            color: "#5e6972",
+            weight: 0.6,
+            fillColor: STATION_COLORS.offline,
+            fillOpacity: 0.32
+          });
+          entry.marker.setRadius(4.5);
         }
+      });
 
-        function snapshotStyle(props) {
+      slider.value = String(currentFrameIndex);
+      const progress = frames.length <= 1
+        ? 0
+        : (currentFrameIndex / (frames.length - 1)) * 100;
+      slider.style.setProperty("--slider-progress", progress + "%");
+      timeLabel.textContent = formatClock(frame.time);
+      timeDetail.textContent =
+        "Frame " + (currentFrameIndex + 1) + " of " + frames.length +
+        " · latest report in interval";
+    }
+
+    function schedulePlayback() {
+      window.clearTimeout(playbackTimer);
+      if (!isPlaying) return;
+
+      playbackTimer = window.setTimeout(function () {
+        renderFrame(currentFrameIndex + 1);
+        schedulePlayback();
+      }, BASE_FRAME_MS / playbackSpeed);
+    }
+
+    function setPlaying(nextState) {
+      isPlaying = Boolean(nextState);
+      playButton.setAttribute("aria-pressed", String(isPlaying));
+      playButton.setAttribute("aria-label", isPlaying ? "Pause animation" : "Play animation");
+      playButton.innerHTML = isPlaying ? pauseIcon : playIcon;
+
+      if (isPlaying) {
+        schedulePlayback();
+      } else {
+        window.clearTimeout(playbackTimer);
+      }
+    }
+
+    function setSpeed(speed) {
+      playbackSpeed = Number(speed);
+      document.querySelectorAll(".speed-button").forEach(function (button) {
+        button.setAttribute(
+          "aria-pressed",
+          String(Number(button.dataset.speed) === playbackSpeed)
+        );
+      });
+      if (isPlaying) schedulePlayback();
+    }
+
+    function daytimeColor(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return "transparent";
+      if (number >= 200000) return "#08306b";
+      if (number >= 150000) return "#08519c";
+      if (number >= 100000) return "#2171b5";
+      if (number >= 50000) return "#4292c6";
+      if (number >= 25000) return "#6baed6";
+      if (number >= 10000) return "#9ecae1";
+      return "#c6dbef";
+    }
+
+    function residentialColor(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return "transparent";
+      if (number >= 80000) return "#4a1486";
+      if (number >= 60000) return "#6a1b9a";
+      if (number >= 40000) return "#8e24aa";
+      if (number >= 20000) return "#ab47bc";
+      if (number >= 10000) return "#ce93d8";
+      if (number >= 5000) return "#e1bee7";
+      return "#f3e5f5";
+    }
+
+    const DENSITY_LEGENDS = {
+      residential: {
+        title: "Residential density · residents/km²",
+        rows: [
+          ["#4a1486", "80,000+"],
+          ["#6a1b9a", "60,000–79,999"],
+          ["#8e24aa", "40,000–59,999"],
+          ["#ab47bc", "20,000–39,999"],
+          ["#ce93d8", "10,000–19,999"],
+          ["#e1bee7", "5,000–9,999"],
+          ["#f3e5f5", "Under 5,000"]
+        ]
+      },
+      daytime: {
+        title: "Daytime density · people/km² · 2016",
+        rows: [
+          ["#08306b", "200,000+"],
+          ["#08519c", "150,000–199,999"],
+          ["#2171b5", "100,000–149,999"],
+          ["#4292c6", "50,000–99,999"],
+          ["#6baed6", "25,000–49,999"],
+          ["#9ecae1", "10,000–24,999"],
+          ["#c6dbef", "Under 10,000"]
+        ]
+      }
+    };
+
+    function createDensityLayers(residentialGeoJson, daytimeGeoJson) {
+      if (residentialGeoJson) {
+        residentialLayer = L.geoJSON(residentialGeoJson, {
+          pane: "densityPane",
+          interactive: false,
+          style: function (feature) {
+            const properties = feature.properties || {};
             return {
-                radius: liveRadius(props),  // <-- NEW
-                weight: 1,
-                color: '#222',                  // outline stroke
-                fillColor: colorForStation(props),
-                fillOpacity: 0.9
+              color: "rgba(33, 26, 43, 0.34)",
+              weight: 0.45,
+              fillColor: residentialColor(properties.res_pop_km2),
+              fillOpacity: 0.48
             };
-        }
-
-        
-
-        // radius for THIS time slice, based on how many bikes are actually available
-        // function liveRadius(props) {
-        //     // working_cap = usable docks (after maintenance etc)
-        //     const cap = props.working_cap ?? props.capacity ?? 20;
-        //     const bikesNow = props.num_bikes_available ?? 0;
-
-        //     // fraction of bikes currently sitting there (0 to 1+ theoretically)
-        //     const frac = cap > 0 ? (bikesNow / cap) : 0;
-
-        //     // visual bounds
-        //     const minR = 4;   // never smaller than this
-        //     const maxR = 12;  // never bigger than this
-
-        //     // linear interpolate
-        //     const r = minR + frac * (maxR - minR);
-
-        //     // extra safety clamp in case weird data >cap
-        //     return Math.max(minR, Math.min(maxR, r));
-        // }
-
-       // Faster growing version according to how many bikes there are, not the fraction of how full it is
-        function liveRadius(props) {
-            const bikesNow = props.num_bikes_available ?? 0;
-
-            const minR = 4;
-            const maxR = 12;
-
-            // tweak divisor: smaller divisor = faster growth
-            const r = minR + bikesNow * 0.4;
-
-            return Math.max(minR, Math.min(maxR, r));
-        }
-        
-
-
-
-        // color scale for *daytime* (jobs / daytime pop per km²) -> cool blues
-        function colorForDaytimeDensity(val) {
-            if (val == null || isNaN(val)) return 'rgba(0,0,0,0)';
-
-            // tune breakpoints if needed based on your range
-            if (val >= 200000) return '#08306b';
-            if (val >= 150000)  return '#08519c';
-            if (val >= 100000)  return '#2171b5';
-            if (val >= 50000)  return '#4292c6';
-            if (val >= 25000)  return '#6baed6';
-            if (val >= 10000)   return '#9ecae1';
-            return '#c6dbef';
-        }
-
-        // color scale for *residential* (residents per km²) -> warmer / purple-ish
-        function colorForResidentialDensity(val) {
-            if (val == null || isNaN(val)) return 'rgba(0,0,0,0)';
-
-            // also tweak breakpoints once you inspect values
-            if (val >= 80000) return '#4a1486';
-            if (val >= 60000)  return '#6a1b9a';
-            if (val >= 40000)  return '#8e24aa';
-            if (val >= 20000)  return '#ab47bc';
-            if (val >= 10000)  return '#ce93d8';
-            if (val >= 5000)   return '#e1bee7';
-            return '#f3e5f5';
-        }
-
-        function formatTimeLabel(iso) {
-            // iso like "2025-08-12T00:00:00"
-            const [datePart, timePartRaw] = iso.split('T');
-            const timePart = (timePartRaw || '').slice(0,5); // "HH:MM"
-            return `Date: ${datePart}<br>${timePart}`;
-        }
-
-
-        // returns HTML string for legend boxes for a given ramp type
-        function getLegendHTML(mode) {
-            // mode is "residential" or "daytime"
-
-            if (mode === "residential") {
-                return `
-                    <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
-                        <div style="font-weight:bold; margin-bottom:4px;">Residential density<br/>(residents per km²)</div>
-                        <div><span style="background:#4a1486; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>80,000+</div>
-                        <div><span style="background:#6a1b9a; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>60,000 – 89,999</div>
-                        <div><span style="background:#8e24aa; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>40,000 – 59,999</div>
-                        <div><span style="background:#ab47bc; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>20,000 – 39,999</div>
-                        <div><span style="background:#ce93d8; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>10,000 – 19,999</div>
-                        <div><span style="background:#e1bee7; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>5,000 – 9,999</div>
-                        <div><span style="background:#f3e5f5; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>&lt; 5000</div>
-                    </div>
-                `;
-            }
-
-            // default daytime legend
-            return `
-                <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
-                    <div style="font-weight:bold; margin-bottom:4px;">Daytime density<br/>(people present per km²)</div>
-                    <div><span style="background:#08306b; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>200,000+</div>
-                    <div><span style="background:#08519c; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>150,000 – 199,999</div>
-                    <div><span style="background:#2171b5; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>100,000 – 149,999</div>
-                    <div><span style="background:#4292c6; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>50,000 – 99,999</div>
-                    <div><span style="background:#6baed6; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>25,000 – 49,999</div>
-                    <div><span style="background:#9ecae1; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>10,000 – 24,999</div>
-                    <div><span style="background:#c6dbef; width:12px; height:12px; display:inline-block; margin-right:4px; border:1px solid #000;"></span>&lt; 10,000</div>
-                </div>
-            `;
-        }
-
-        // ONE legend control for the whole app
-        const legendControl = L.control({ position: 'bottomright' });
-        legendControl.onAdd = function () {
-        this._div = L.DomUtil.create('div', 'density-legend');
-        this.update(null);
-        return this._div;
-        };
-        legendControl.update = function (mode) {
-        if (!mode) {
-            this._div.style.display = 'none';
-            this._div.innerHTML = '';
-        } else {
-            this._div.style.display = 'block';
-            this._div.innerHTML = getLegendHTML(mode);
-        }
-        };
-        legendControl.addTo(map);
-
-        // Responsive position (top-right on phones so it avoids iOS bottom bars)
-        function placeLegendResponsively() {
-        const isNarrow = window.matchMedia('(max-width: 600px)').matches;
-        legendControl.setPosition(isNarrow ? 'topright' : 'bottomright');
-        }
-        map.whenReady(placeLegendResponsively);
-        window.addEventListener('resize', placeLegendResponsively);
-
-        // Optional: add a body class when a density layer is on, so your CSS can adjust time UI width
-        function setLegendOn(isOn) {
-        document.body.classList.toggle('legend-on', !!isOn);
-        }
-
-
-
-        //Think I can delete the below now
-        // we'll create an empty legend control now and update its innerHTML later
-        // const legendControl = L.control({ position: 'bottomright' });
-
-        // legendControl.onAdd = function (map) {
-        //     this._div = L.DomUtil.create('div', 'density-legend');
-        //     // we'll let CSS handle visuals now
-        //     this.update(null); // start hidden
-        //     return this._div;
-        // };
-
-
-        // legendControl.update = function (mode) {
-        //     if (!mode) {
-        //         // hide legend if no contextual layer is active
-        //         this._div.style.display = 'none';
-        //         this._div.innerHTML = '';
-        //     } else {
-        //         this._div.style.display = 'block';
-        //         this._div.innerHTML = getLegendHTML(mode);
-        //     }
-        // };
-
-        // legendControl.addTo(map);
-
-
-
-        
-        // async block #3: load jobs polygons and add as a styled choropleth layer
-        // async block #1: load jobs polygons and add as a styled choropleth layer
-        // We'll store the two polygon layers so we can toggle them later.
-        let daytimeLayer = null;
-        let residentialLayer = null;
-
-        // We'll also store the control so we only create it once.
-        let overlayControl = null;
-
-        // Async IIFE to load BOTH polygon datasets
-        (async function () {
-
-            // ---- A) Load daytime / jobs density
-            // Assumes your file Dublin_Job_Density_2016.geojson has fields like:
-            //   - day_pop_km2  (or workers_km2 / whatever you calculated)
-            //   - T11_T        (total daytime pop)
-            // Update field names below if different.
-            const dayResp = await fetch('DublinCity_Job_Density_2016.geojson');
-            if (!dayResp.ok) {
-                console.error('Failed to load daytime (jobs) geojson:', dayResp.status, dayResp.statusText);
-            } else {
-                const dayGeo = await dayResp.json();
-                console.log('Loaded daytime polygons:', dayGeo.features?.length ?? 0);
-
-                daytimeLayer = L.geoJSON(dayGeo, {
-                    pane: 'choropleth-pane',
-                    style: function (feature) {
-                        const p = feature.properties;
-                        // pick whichever density you exported: e.g. p.day_pop_km2
-                        const densityVal = p.day_pop_km2 ?? p.workers_km2 ?? p.T11_T;
-                        return {
-                            color: '#000000',
-                            weight: 0.4,
-                            fillColor: colorForDaytimeDensity(densityVal),
-                            fillOpacity: 0.4
-                        };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const p = feature.properties;
-                        const densityVal = p.day_pop_km2 ?? p.workers_km2;
-                        const peopleHere = p.T11_T ?? p.T11_C1;
-
-                        layer.bindPopup(
-                            `<strong>Daytime presence</strong><br/>
-                            ${peopleHere?.toLocaleString?.() ?? peopleHere} people total<br/>
-                            ${Math.round(densityVal || 0).toLocaleString()} / km²`
-                        );
-                    }
-
-                });
-            }
-
-            // ---- B) Load residential (nighttime) density
-            // This expects residential_density.geojson with:
-            //   - res_pop_total
-            //   - res_pop_km2
-            const resResp = await fetch('residential_density_DubCity.geojson');
-            if (!resResp.ok) {
-                console.error('Failed to load residential geojson:', resResp.status, resResp.statusText);
-            } else {
-                const resGeo = await resResp.json();
-                console.log('Loaded residential polygons:', resGeo.features?.length ?? 0);
-
-                residentialLayer = L.geoJSON(resGeo, {
-                    pane: 'choropleth-pane',
-                    style: function (feature) {
-                        const p = feature.properties;
-                        const densityVal = p.res_pop_km2;
-                        return {
-                            color: '#000000',
-                            weight: 0.4,
-                            fillColor: colorForResidentialDensity(densityVal),
-                            fillOpacity: 0.4
-                        };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const p = feature.properties;
-                        layer.bindPopup(
-                            `<strong>Residential population</strong><br/>
-                            ${p.res_pop_total?.toLocaleString?.() ?? p.res_pop_total} residents<br/>
-                            ${Math.round(p.res_pop_km2 || 0).toLocaleString()} / km²`
-                        );
-                    }
-
-                });
-            }
-
-            // ---- C) Add both to the map + layer control
-
-            // DO NOT add residentialLayer or daytimeLayer to the map here.
-            // We want a "clean" bike-first view on load.
-
-            // // Build overlay map entries for the layer control
-            // const overlayMaps = {};
-            // if (residentialLayer) {
-            //     overlayMaps["Residential density"] = residentialLayer;
-            // }
-            // if (daytimeLayer) {
-            //     overlayMaps["Daytime density"] = daytimeLayer;
-            // }
-
-            // // Create the control (top right by default)
-            // if (!overlayControl) {
-            //     overlayControl = L.control.layers(
-            //         {},            // no base layer alternatives
-            //         overlayMaps,   // overlays you can toggle
-            //         { collapsed: false }
-            //     ).addTo(map);
-            // }
-
-            // ---- C) Build layer control with radio-style exclusivity
-
-            // We will NOT .addTo(map) either layer yet.
-            // We'll let the user pick one via radio buttons.
-
-            // a dummy layer that shows nothing but satisfies Leaflet's radio logic
-            const noneLayer = L.layerGroup();
-
-            // IMPORTANT: add noneLayer to the map now
-            // This makes Leaflet consider "None" the active base layer
-            noneLayer.addTo(map);
-
-            // Build layer control with radio-style exclusivity
-            const baseLayers = {
-                "None": noneLayer
-            };
-
-            if (residentialLayer) {
-                baseLayers["Residential density"] = residentialLayer;
-            }
-            if (daytimeLayer) {
-                baseLayers["Daytime density"] = daytimeLayer;
-            }
-
-            if (!overlayControl) {
-                overlayControl = L.control.layers(
-                    baseLayers,
-                    {}, // no overlays
-                    { collapsed: false }
-                ).addTo(map);
-            }
-
-
-
-        //     map.on('baselayerchange', function (e) {
-        //     // e.name is the label in the control ("Residential density" or "Daytime density")
-        //     if (e.name === "Residential density") {
-        //         legendControl.update("residential");
-        //     } else if (e.name === "Daytime density") {
-        //         legendControl.update("daytime");
-        //     } else {
-        //         legendControl.update(null);
-        //     }
-        // });
-
-
-        map.on('baselayerchange', (e) => {
-            if (e.name === 'Residential density') {
-                legendControl.update('residential');
-                setLegendOn(true);
-            } else if (e.name === 'Daytime density') {
-                legendControl.update('daytime');
-                setLegendOn(true);
-            } else {
-                legendControl.update(null);
-                setLegendOn(false);
-            }
-            placeLegendResponsively();
+          }
         });
+      }
 
-
-
-
-
-
-        })();
-
-
-
-        // async block to load stations and add them to the map
-        (async function () {
-
-        // 1. Load the station locations (no time dimension yet)
-        const resp = await fetch('dublin_bikes_stations.geojson');
-        if (!resp.ok) {
-            console.error('Failed to load stations GeoJSON:', resp.status, resp.statusText);
-            return;
-        }
-
-        const stationsGeoJSON = await resp.json();
-        console.log('Loaded stations:', stationsGeoJSON.features?.length ?? 0);
-
-        // 2. Marker styling helpers
-
-        function stationStyle(props) {
+      if (daytimeGeoJson) {
+        daytimeLayer = L.geoJSON(daytimeGeoJson, {
+          pane: "densityPane",
+          interactive: false,
+          style: function (feature) {
+            const properties = feature.properties || {};
+            const densityValue =
+              properties.day_pop_km2 ??
+              properties.workers_km2 ??
+              properties.T11_T;
             return {
-                radius: liveRadius(props),        // use live size
-                weight: 0,
-                color: '#222',
-                fillColor: colorForStation(props),// match the color logic too
-                fillOpacity: 0.4
+              color: "rgba(18, 38, 58, 0.3)",
+              weight: 0.45,
+              fillColor: daytimeColor(densityValue),
+              fillOpacity: 0.48
             };
-        }
-
-
-
-        // 3. Create a Leaflet GeoJSON layer from the data
-        const stationsLayer = L.geoJSON(stationsGeoJSON, {
-            pointToLayer: function (feature, latlng) {
-                const p = feature.properties;
-                return L.circleMarker(latlng, stationStyle(p));
-            },
-            onEachFeature: function (feature, layer) {
-                const p = feature.properties;
-                const occPct = (p.pct_occ_working != null)
-                    ? (p.pct_occ_working * 100).toFixed(0) + "%"
-                    : "—";
-
-                // interpret status text
-                let statusText = "";
-                if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) {
-                    statusText = "No docks free";
-                } else if (p.pct_occ_working <= 0.01) {
-                    statusText = "No bikes available";
-                } else {
-                    statusText = "Bikes available";
-                }
-
-                layer.bindTooltip(
-                    `<strong>${p.name}</strong><br/>
-                    ${p.time_iso}<br/>
-                    ${statusText}<br/>
-                    Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
-                    Load: ${occPct}`,
-                    { direction: 'top' }
-                );
-            }
-
-            
-            // onEachFeature: function (feature, layer) {
-            //     const p = feature.properties;
-            //     layer.bindTooltip(
-            //         `<strong>${p.name}</strong><br/>
-            //         ID: ${p.station_id}<br/>
-            //         Capacity: ${p.capacity} docks`,
-            //         { direction: 'top' }
-            //     );
-            // }
+          }
         });
+      }
+    }
 
-        // 4. Add to map
-        stationsLayer.addTo(map);
+    function renderDensityLegend(mode) {
+      const legend = DENSITY_LEGENDS[mode];
+      if (!legend) {
+        densityLegend.classList.remove("is-visible");
+        densityLegend.removeAttribute("data-mode");
+        densityLegend.innerHTML = "";
+        return;
+      }
 
-        // 5. Fit map to all stations so you're centered on real data
-        // 5. Fit map to all stations so you're centered on real data
-        const bounds = stationsLayer.getBounds();
-        if (bounds && bounds.isValid && bounds.isValid()) {
-            map.fitBounds(bounds.pad(0.1));
-        } else {
-            // fallback: center on Dublin-ish if something is weird
-            map.setView([53.3465, -6.27], 14);
+      const rows = legend.rows.map(function (row) {
+        return (
+          '<div class="legend-row">' +
+            '<i class="legend-swatch" style="background:' + row[0] + '"></i>' +
+            "<span>" + row[1] + "</span>" +
+          "</div>"
+        );
+      }).join("");
+
+      densityLegend.setAttribute("data-mode", mode);
+      densityLegend.innerHTML =
+        '<p class="density-legend-title">' + legend.title + "</p>" +
+        rows +
+        '<div class="density-legend-mobile" aria-hidden="true">' +
+          '<div class="density-ramp"></div>' +
+          '<div class="density-ramp-labels">' +
+            '<span>Low</span><span>Medium</span><span>High</span>' +
+          "</div>" +
+        "</div>";
+      densityLegend.classList.add("is-visible");
+    }
+
+    function setContextLayer(mode) {
+      if (activeContextLayer && map.hasLayer(activeContextLayer)) {
+        map.removeLayer(activeContextLayer);
+      }
+      activeContextLayer = null;
+
+      if (mode === "residential" && residentialLayer) {
+        activeContextLayer = residentialLayer;
+      } else if (mode === "daytime" && daytimeLayer) {
+        activeContextLayer = daytimeLayer;
+      }
+
+      if (activeContextLayer) {
+        activeContextLayer.addTo(map);
+      }
+
+      document.querySelectorAll(".context-button").forEach(function (button) {
+        button.setAttribute("aria-pressed", String(button.dataset.context === mode));
+      });
+      renderDensityLegend(activeContextLayer ? mode : "none");
+    }
+
+    function openInfo() {
+      infoBackdrop.classList.add("is-open");
+      infoButton.setAttribute("aria-expanded", "true");
+      closeInfoButton.focus();
+    }
+
+    function closeInfo() {
+      infoBackdrop.classList.remove("is-open");
+      infoButton.setAttribute("aria-expanded", "false");
+      infoButton.focus();
+    }
+
+    playButton.addEventListener("click", function () {
+      setPlaying(!isPlaying);
+    });
+
+    previousButton.addEventListener("click", function () {
+      setPlaying(false);
+      renderFrame(currentFrameIndex - 1);
+    });
+
+    nextButton.addEventListener("click", function () {
+      setPlaying(false);
+      renderFrame(currentFrameIndex + 1);
+    });
+
+    slider.addEventListener("input", function () {
+      setPlaying(false);
+      renderFrame(Number(slider.value));
+    });
+
+    document.querySelectorAll(".speed-button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        setSpeed(button.dataset.speed);
+      });
+    });
+
+    document.querySelectorAll(".context-button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        setContextLayer(button.dataset.context);
+      });
+    });
+
+    infoButton.addEventListener("click", openInfo);
+    closeInfoButton.addEventListener("click", closeInfo);
+    infoBackdrop.addEventListener("click", function (event) {
+      if (event.target === infoBackdrop) closeInfo();
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && infoBackdrop.classList.contains("is-open")) {
+        closeInfo();
+        return;
+      }
+      const interactiveElement = event.target.closest("button, input, a");
+      if (interactiveElement || infoBackdrop.classList.contains("is-open")) return;
+
+      if (event.key === "ArrowRight") {
+        setPlaying(false);
+        renderFrame(currentFrameIndex + 1);
+      } else if (event.key === "ArrowLeft") {
+        setPlaying(false);
+        renderFrame(currentFrameIndex - 1);
+      } else if (event.code === "Space") {
+        event.preventDefault();
+        setPlaying(!isPlaying);
+      }
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden && isPlaying) setPlaying(false);
+    });
+
+    Promise.all([
+      fetchJson(FILES.stations, false),
+      fetchJson(FILES.animation, false),
+      fetchJson(FILES.residential, true),
+      fetchJson(FILES.daytime, true)
+    ])
+      .then(function (results) {
+        const stationGeoJson = results[0];
+        const animationData = results[1];
+        const residentialGeoJson = results[2];
+        const daytimeGeoJson = results[3];
+
+        createDensityLayers(residentialGeoJson, daytimeGeoJson);
+        createStationMarkers(stationGeoJson);
+
+        frames = Array.isArray(animationData.frames) ? animationData.frames : [];
+        if (!frames.length) {
+          throw new Error("The animation JSON does not contain any frames.");
         }
 
+        slider.max = String(frames.length - 1);
+        const dateLabel = formatDateLabel(animationData.date);
+        document.getElementById("map-subtitle").textContent =
+          dateLabel + " · " + (animationData.interval_minutes || 15) + "-minute snapshots";
+        document.getElementById("info-date").textContent = dateLabel;
 
-        })();
-
-
-        // async block #2: load 15-min dataset, build frames, create UI, animate
-        (async function () {
-
-        // 1. Load the 15-min binned dataset
-        const resp = await fetch('dublin_bikes_aug12_15min.geojson');
-        if (!resp.ok) {
-            console.error('Failed to load 15min GeoJSON:', resp.status, resp.statusText);
-            return;
-        }
-        const aug15 = await resp.json();
-        console.log('Loaded 15-min features:', aug15.features?.length ?? 0);
-
-        // 2. Group features by time_iso
-        // framesByTime = { "2025-08-12T05:15:00": [feature, feature, ...], ... }
-        const framesByTime = {};
-        for (const feat of aug15.features) {
-            const t = feat.properties.time_iso;
-            if (!framesByTime[t]) {
-                framesByTime[t] = [];
-            }
-            framesByTime[t].push(feat);
-        }
-
-        // 3. Get an ordered list of all timestamps
-        const allTimes = Object.keys(framesByTime).sort();
-        console.log("Distinct frame times:", allTimes.length, "frames");
-
-        // 4. We'll keep a Leaflet layer reference here so we can replace it each frame
-        let snapshotLayer = null;
-
-        // helper to (re)draw one frame on the map
-        function drawFrame(time_iso) {
-            const frameFeatures = framesByTime[time_iso] || [];
-            const snapshotFC = { type: "FeatureCollection", features: frameFeatures };
-
-            // 1) Turn last frame into a faint blue trail instead of deleting it
-            if (snapshotLayer) {
-                snapshotLayer.eachLayer(m => {
-                // soft blue breadcrumb style
-                m.setStyle({
-                    color: '#3b82f6',        // stroke
-                    fillColor: '#3b82f6',    // fill
-                    fillOpacity: 0.18,
-                    weight: 0,
-                    radius: 3                // small dots so the current frame stands out
-                });
-                });
-                trailGroup.addLayer(snapshotLayer);
-                trailLayers.push(snapshotLayer);
-                if (trailLayers.length > TRAIL_FRAMES) {
-                const old = trailLayers.shift();
-                trailGroup.removeLayer(old);
-                }
-            }
-
-            // 2) Draw the new "current" snapshot on top
-            snapshotLayer = L.geoJSON(snapshotFC, {
-                pointToLayer: (feature, latlng) => L.circleMarker(latlng, snapshotStyle(feature.properties)),
-                onEachFeature: function (feature, layer) {
-                const p = feature.properties;
-                const occPct = (p.pct_occ_working != null) ? (p.pct_occ_working * 100).toFixed(0) + "%" : "—";
-                let statusText = "";
-                if ((p.is_full_working === true) || (p.pct_occ_working >= 0.99)) statusText = "No docks free";
-                else if (p.pct_occ_working <= 0.01) statusText = "No bikes available";
-                else statusText = "Bikes available";
-                layer.bindTooltip(
-                    `<strong>${p.name}</strong><br/>
-                    ${p.time_iso}<br/>
-                    ${statusText}<br/>
-                    Bikes: ${p.num_bikes_available} / WorkCap: ${p.working_cap}<br/>
-                    Load: ${occPct}`,
-                    { direction: 'top' }
-                );
-                }
-            }).addTo(map);
-
-            const labelEl = document.getElementById('time-label');
-            if (labelEl) labelEl.innerHTML = formatTimeLabel(time_iso);
-        }
-
-        
-
-        // 5. --- build simple UI controls (slider + play/pause) ---
-
-        // 5. --- build simple UI controls (slider + play/pause) ---
-
-        // SELECT the existing container you put in the HTML body
-        const uiDiv = document.getElementById('time-ui');
-
-        // Fill it with the controls (no inline styles here—let CSS handle size)
-        uiDiv.innerHTML = `
-            <div class="time-row">
-                <button id="prev-frame" class="play-btn" aria-label="Previous">◀</button>
-                <button id="play-pause" class="play-btn" aria-label="Play/Pause">▶</button>
-                <button id="next-frame" class="play-btn" aria-label="Next">▶▶</button>
-                <span id="time-label" class="time-label">--:--</span>
-            </div>
-            <input id="time-slider" class="time-slider" type="range"
-                    min="0" max="${allTimes.length - 1}" value="0" aria-label="Time slider">
-            `;
-
-
-        // Prevent map panning/zooming when interacting with the UI
-        L.DomEvent.disableClickPropagation(uiDiv);
-        L.DomEvent.disableScrollPropagation(uiDiv);
-
-        // (Optional) if you still want absolute positioning via JS, keep these;
-        // otherwise, move them to CSS and delete these three lines.
-        uiDiv.style.position = 'absolute';
-        uiDiv.style.left = '1rem';
-        uiDiv.style.bottom = '1rem';
-        uiDiv.style.zIndex = 1200;
-
-        
-        const sliderEl = document.getElementById('time-slider');
-        const playBtn  = document.getElementById('play-pause');
-        const prevBtn  = document.getElementById('prev-frame');
-        const nextBtn  = document.getElementById('next-frame');
-
-        function goToIndex(idx){
-        const len = allTimes.length;
-        if (len === 0) return;
-        // wrap around
-        idx = (idx + len) % len;
-        sliderEl.value = idx;
-        drawFrame(allTimes[idx]);
-        }
-
-        function currentIndex(){
-        return parseInt(sliderEl.value, 10) || 0;
-        }
-
-        function nextFrame(){ goToIndex(currentIndex() + 1); }
-        function prevFrame(){ goToIndex(currentIndex() - 1); }
-
-        // click handlers
-        nextBtn.addEventListener('click', nextFrame);
-        prevBtn.addEventListener('click', prevFrame);
-
-        // autoplay uses nextFrame
-        let playing = false;
-        let playTimer = null;
-
-        playBtn.addEventListener('click', () => {
-        playing = !playing;
-        if (playing) {
-            playBtn.textContent = '⏸';
-            playTimer = setInterval(nextFrame, 380); // snappier feel
-        } else {
-            playBtn.textContent = '▶';
-            clearInterval(playTimer);
-        }
-        });
-
-        // track which legend is showing right now
-        let currentLegendMode = null; // 'daytime' | 'residential' | null
-
-        // I think I delete all of the below legend control stuff
-        
-        // const legendControl = L.control({ position: 'bottomright' });
-        // legendControl.onAdd = function () {
-        // this._div = L.DomUtil.create('div', 'density-legend');
-        // this.update(null);
-        // return this._div;
-        // };
-        // legendControl.update = function (mode) {
-        // currentLegendMode = mode; // keep state in sync
-        // if (!mode) {
-        //     this._div.style.display = 'none';
-        //     this._div.innerHTML = '';
-        // } else {
-        //     this._div.style.display = 'block';
-        //     this._div.innerHTML = getLegendHTML(mode);
-        // }
-        // };
-        // legendControl.addTo(map);
-
-        // define ONCE, not inside drawFrame
-        // function placeLegendResponsively() {
-        // const isNarrow = window.matchMedia('(max-width: 600px)').matches;
-        // legendControl.setPosition(isNarrow ? 'topright' : 'bottomright');
-
-        // // after reparenting, make sure content & styles persist
-        // setTimeout(() => {
-        //     const c = legendControl._container;
-        //     if (c) c.style.maxWidth = '80vw';
-        //     // re-apply current mode in case the DOM was rebuilt
-        //     if (typeof currentLegendMode !== 'undefined') {
-        //     legendControl.update(currentLegendMode);
-        //     }
-        // }, 0);
-        // }
-
-        // map.whenReady(placeLegendResponsively);
-        // window.addEventListener('resize', placeLegendResponsively);
-
-
-
-
-
-        
-        // Wire up controls
-        // const sliderEl = document.getElementById('time-slider');
-        // const playBtn  = document.getElementById('play-pause');
-
-        // 6) slider -> draw frame
-        sliderEl.addEventListener('input', () => {
-        const idx = parseInt(sliderEl.value, 10);
-        drawFrame(allTimes[idx]);
-        });
-
-        // 7) play/pause logic
-        // let playing = false;
-        // let playTimer = null;
-
-        function stepFrame() {
-        let idx = parseInt(sliderEl.value, 10);
-        idx = (idx + 1) % allTimes.length;
-        sliderEl.value = idx;
-        drawFrame(allTimes[idx]);
-        }
-
-        // playBtn.addEventListener('click', () => {
-        // playing = !playing;
-        // if (playing) {
-        //     playBtn.textContent = '⏸';
-        //     playTimer = setInterval(stepFrame, 380); // snappier feel
-        // } else {
-        //     playBtn.textContent = '▶';
-        //     clearInterval(playTimer);
-        // }
-        // });
-
-        // keyboard: left/right to nudge frames when focused on the map or UI
-        document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight') { nextFrame(); }
-        if (e.key === 'ArrowLeft')  { prevFrame(); }
-        });
-
-        // Breadcrumb trail holder (added BEFORE snapshots so snapshots draw on top)
-        const trailGroup = L.layerGroup().addTo(map);
-        const TRAIL_FRAMES = 6;     // how many past frames to keep
-        const trailLayers = [];     // ring buffer
-
-        // 8. draw the very first frame to initialize map
-        drawFrame(allTimes[0]);
-
-        })();
-
-    
-
-</script>
+        renderFrame(0);
+        loadingPanel.style.display = "none";
+        map.invalidateSize();
+      })
+      .catch(function (error) {
+        console.error(error);
+        loadingPanel.style.display = "none";
+        errorCopy.textContent =
+          error.message +
+          " Run this folder through a local web server and confirm the four filenames at the top of the script.";
+        errorPanel.style.display = "block";
+      });
+  </script>
+</body>
 </html>
