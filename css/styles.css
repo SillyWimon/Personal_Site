@@ -480,6 +480,85 @@ footer a:hover {
   height: 375px;
 }
 
+/* REFINED MAIN NAVIGATION
+---------------------------------------*/
+.main-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(0.8rem, 2vw, 1.8rem);
+
+  margin-top: 1.6rem;
+  padding: 0.9rem 0;
+
+  background: transparent;
+  border-top: 1px solid rgba(69, 73, 85, 0.22);
+  border-bottom: 1px solid rgba(69, 73, 85, 0.22);
+}
+
+.main-nav a {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.45rem 0.2rem;
+
+  background: transparent;
+  border-radius: 0;
+  color: #2541b2;
+
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  text-underline-offset: 0.4rem;
+
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+}
+
+.main-nav a:hover {
+  background: transparent;
+  color: #bb4430;
+  text-decoration: underline;
+  text-decoration-color: #ffc857;
+  text-decoration-thickness: 3px;
+
+  transform: none;
+  box-shadow: none;
+}
+
+/* Show which page is currently open */
+.home .main-nav a[href="index.html"],
+.resume .main-nav a[href="resume.html"],
+.portfolio .main-nav a[href="portfolio.html"],
+.blog .main-nav a[href="blog.html"] {
+  color: #222;
+  text-decoration: underline;
+  text-decoration-color: #ffc857;
+  text-decoration-thickness: 4px;
+}
+
+.main-nav a:focus-visible {
+  outline: 3px solid #ffc857;
+  outline-offset: 4px;
+}
+
+@media (max-width: 600px) {
+  .main-nav {
+    display: flex;
+    gap: 0.5rem 1.2rem;
+    margin-top: 1rem;
+    padding: 0.75rem 0;
+  }
+
+  .main-nav a {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0.5rem 0.1rem;
+    font-size: 1.45rem;
+  }
+}
+
 /* FOOTER
 ---------------------------------------*/
 footer {
